@@ -6,7 +6,7 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#define DEVICE_NAME "TamiOn_5555"
+#define DEVICE_NAME "TamiOn_5557"
 
 #include <stdio.h>
 #include <stdlib.h>
