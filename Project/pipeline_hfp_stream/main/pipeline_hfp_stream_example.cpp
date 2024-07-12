@@ -1,26 +1,68 @@
-#include "audio_hal.h"
-#include <string.h>
-#include "nvs_flash.h"
-#include "esp_log.h"
-#include "esp_peripherals.h"
-#include "esp_bt_device.h"
-#include "esp_bt_main.h"
-#include "esp_gap_bt_api.h"
-#include "audio_pipeline.h"
-#include "audio_event_iface.h"
-#include "i2s_stream.h"
-#include "board.h"
-#include "hfp_stream.h"
-#include "audio_idf_version.h"
+#include "Arduino.h"
+extern "C"
+{
+    #include "audio_hal.h"
+    #include <string.h>
+    #include "nvs_flash.h"
+    #include "esp_log.h"
+    #include "esp_peripherals.h"
+    #include "esp_bt_device.h"
+    #include "esp_bt_main.h"
+    #include "esp_gap_bt_api.h"
+    #include "audio_pipeline.h"
+    #include "audio_event_iface.h"
+    #include "board.h"
+    #include "hfp_stream.h"
+    #include "audio_idf_version.h"
+    #include "i2s_stream.h"
 
-#define DEVICE_NAME "TamiOn_AE88"
-static const char *TAG = DEVICE_NAME;
+    #define DEVICE_NAME "TamiOn_AE89"
+    static const char *TAG = DEVICE_NAME;
 
-static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
-static audio_pipeline_handle_t pipeline_in, pipeline_out;
+    static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
+    static audio_pipeline_handle_t pipeline_in, pipeline_out;
 
-static int g_hfp_audio_rate = 16000;
+    static int g_hfp_audio_rate = 16000;
+}
+extern "C"
+{
+    static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type);
+    static void bt_app_hf_client_audio_close(void);
+    i2s_stream_cfg_t create_i2s_stream_cfg(audio_stream_type_t stream_type, i2s_port_t port, uint32_t rate, i2s_bits_per_sample_t bits) {
+        i2s_stream_cfg_t cfg = {
+            .type = stream_type,
+            .i2s_port = port,
+            .expand_src_bits = I2S_BITS_PER_SAMPLE_16BIT,
+            .i2s_config = {
+                .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX),
+                .sample_rate = rate,
+                .bits_per_sample = bits,
+                .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+                .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+                .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2 | ESP_INTR_FLAG_IRAM,
+                .dma_buf_count = 3,
+                .dma_buf_len = 300,
+                .use_apll = true,
+                .tx_desc_auto_clear = true,
+                .fixed_mclk = 0
+            },
+            .use_alc = false,
+            .volume = 0,
+            .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,
+            .task_stack = I2S_STREAM_TASK_STACK,
+            .task_core = I2S_STREAM_TASK_CORE,
+            .task_prio = I2S_STREAM_TASK_PRIO,
+            .stack_in_ext = false,
+            .multi_out_num = 0,
+            .uninstall_drv = true,
+            .need_expand = false,
+            .buffer_len = I2S_STREAM_BUF_SIZE,
+        };
+        return cfg;
+    }
 
+    void app_main(void);
+}
 // HFP 오디오 스트림을 여는 함수
 static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 {
@@ -119,7 +161,8 @@ void app_main(void)
     pipeline_out = audio_pipeline_init(&pipeline_cfg);
 
     ESP_LOGI(TAG, "[3.1] 코덱 칩에 데이터를 쓰고 코덱 칩에서 데이터를 읽기 위한 i2s 스트림 생성");
-    i2s_stream_cfg_t i2s_cfg1 = I2S_STREAM_CFG_DEFAULT();
+    i2s_stream_cfg_t i2s_cfg1 = create_i2s_stream_cfg(AUDIO_STREAM_WRITER, I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT);
+
     i2s_cfg1.type = AUDIO_STREAM_READER;
     #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
         i2s_cfg1.chan_cfg.id = CODEC_ADC_I2S_PORT;
@@ -131,7 +174,6 @@ void app_main(void)
         i2s_cfg1.std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_RIGHT;
     #endif
     #else
-        i2s_cfg1.i2s_port = CODEC_ADC_I2S_PORT;
         i2s_cfg1.i2s_config.sample_rate = g_hfp_audio_rate;
     #if defined(CONFIG_ESP_LYRAT_MINI_V1_1_BOARD) || defined(CONFIG_ESP_LYRATD_MSC_V2_1_BOARD) || defined(CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
         i2s_cfg1.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
@@ -142,7 +184,7 @@ void app_main(void)
     i2s_cfg1.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
     i2s_stream_reader = i2s_stream_init(&i2s_cfg1);
 
-    i2s_stream_cfg_t i2s_cfg2 = I2S_STREAM_CFG_DEFAULT();
+    i2s_stream_cfg_t i2s_cfg2 = create_i2s_stream_cfg(AUDIO_STREAM_WRITER, I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT);
     i2s_cfg2.type = AUDIO_STREAM_WRITER;
     #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
     i2s_cfg2.std_cfg.slot_cfg.slot_mode = I2S_SLOT_MODE_MONO;
