@@ -1,13 +1,5 @@
-/* Bluetooth 장치에서 음악 재생
-
-   이 예제 코드는 퍼블릭 도메인에 있으며, 원하시면 CC0 라이선스를 선택할 수 있습니다.
-
-   법적으로 요구되지 않는 한, 이 소프트웨어는 "있는 그대로" 배포되며, 어떠한 명시적 또는 묵시적 보증도 없습니다.
-*/
 #include "audio_hal.h"
-
 #include <string.h>
-//#include "esp_hf_client_api.h" // HFP 클라이언트 API 포함
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_peripherals.h"
@@ -19,10 +11,9 @@
 #include "i2s_stream.h"
 #include "board.h"
 #include "hfp_stream.h"
-
 #include "audio_idf_version.h"
 
-#define DEVICE_NAME "TamiOn_AE80"
+#define DEVICE_NAME "TamiOn_AE86"
 static const char *TAG = DEVICE_NAME;
 
 static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
@@ -45,12 +36,8 @@ static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 static void bt_app_hf_client_audio_close(void)
 {
     ESP_LOGI(TAG, "HFP 오디오 닫기");
-    // // 파이프라인을 일시 중지합니다.
     ESP_LOGI(TAG, "출력 파이프라인 일시 중지");
-    // audio_pipeline_pause(pipeline_out);
     ESP_LOGI(TAG, "입력 파이프라인 일시 중지");
-    // audio_pipeline_pause(pipeline_in);
-
     audio_pipeline_pause(pipeline_out);
     audio_pipeline_pause(pipeline_in);
 }
