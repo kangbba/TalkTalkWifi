@@ -13,7 +13,7 @@
 #include "hfp_stream.h"
 #include "audio_idf_version.h"
 
-#define DEVICE_NAME "TamiOn_AE86"
+#define DEVICE_NAME "TamiOn_AE88"
 static const char *TAG = DEVICE_NAME;
 
 static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
@@ -26,10 +26,10 @@ static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 {
     ESP_LOGI(TAG, "HFP 오디오 열기 타입 = %d", type);
 
-    audio_pipeline_reset_ringbuffer(pipeline_in);
-    audio_pipeline_reset_ringbuffer(pipeline_out);
-    audio_pipeline_resume(pipeline_in);
-    audio_pipeline_resume(pipeline_out);
+  //  audio_pipeline_reset_ringbuffer(pipeline_in);
+ //   audio_pipeline_reset_ringbuffer(pipeline_out);
+  //  audio_pipeline_resume(pipeline_in);
+  //  audio_pipeline_resume(pipeline_out);
 }
 
 // 이 함수는 HFP 오디오 스트림을 닫습니다. 연결이 끊어졌을 때 호출됩니다.
@@ -38,8 +38,8 @@ static void bt_app_hf_client_audio_close(void)
     ESP_LOGI(TAG, "HFP 오디오 닫기");
     ESP_LOGI(TAG, "출력 파이프라인 일시 중지");
     ESP_LOGI(TAG, "입력 파이프라인 일시 중지");
-    audio_pipeline_pause(pipeline_out);
-    audio_pipeline_pause(pipeline_in);
+ //   audio_pipeline_pause(pipeline_out);
+ //   audio_pipeline_pause(pipeline_in);
 }
 
 void app_main(void)
@@ -58,7 +58,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "[ 1 ] Bluetooth 초기화");
     // BLE 메모리를 해제합니다.
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+   // ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
 
     // Bluetooth 컨트롤러를 초기화합니다.
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
@@ -67,7 +67,7 @@ void app_main(void)
     }
 
     // Bluetooth 클래식 모드를 활성화합니다.
-    if (esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT) != ESP_OK) {
+    if (esp_bt_controller_enable(ESP_BT_MODE_BTDM) != ESP_OK) {
         ESP_LOGE(TAG, "컨트롤러 활성화 실패");
     }
 
