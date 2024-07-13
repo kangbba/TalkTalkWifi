@@ -1,4 +1,25 @@
 #include "Arduino.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+//BLE
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
+#define DEVICE_NAME "TamiOn_AE95"
+#define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b" // UART service UUID
+#define CHARACTERISTIC_UUID_RX "beb5483e-36e1-4688-b7f5-ea07361b26a8" // 
+#define CHARACTERISTIC_UUID_TX "beb5483e-36e1-4688-b7f5-ea07361b26a9" // 
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+
+BLEServer *pServer = NULL;
+BLECharacteristic * pTxCharacteristic;
+uint8_t txValue = 0;
+
+//ADF
 extern "C"
 {
     #include "audio_hal.h"
@@ -16,7 +37,6 @@ extern "C"
     #include "audio_idf_version.h"
     #include "i2s_stream.h"
 
-    #define DEVICE_NAME "TamiOn_AE89"
     static const char *TAG = DEVICE_NAME;
 
     static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
@@ -24,6 +44,62 @@ extern "C"
 
     static int g_hfp_audio_rate = 16000;
 }
+
+//BLE Functions
+void initBLE();
+void clearSerialBuffer();
+void parseLangCodeAndMessage(String input, int &langCode, String &someMsg);
+String replaceChinesePunctuations(String str);
+void showLCD(int langCode, String str);
+
+
+
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+        Serial.print("onConnect : ");
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+        Serial.print("onDisconnect: ");
+    }
+};
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string rxValue = pCharacteristic->getValue();
+      if (rxValue.length() > 0) {
+        Serial.println("********");
+        Serial.print("Received Value: ");
+        for (int i = 0; i < rxValue.length(); i++)
+          Serial.print(rxValue[i]);
+
+        Serial.println();
+
+        String fullMsg = rxValue.c_str(); 
+
+        Serial.print("Received Value to String : ");
+        Serial.println();
+        Serial.print(fullMsg);
+
+        if (fullMsg.length() > 0 && fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1) {
+            int langCode;
+            String someMsg;
+            parseLangCodeAndMessage(fullMsg, langCode, someMsg);
+            if (langCode == 5) {
+                someMsg = replaceChinesePunctuations(someMsg);
+            }
+            showLCD(langCode, someMsg);
+        } 
+        else {
+            Serial.println("Invalid input format. It should be in the format 'langcode:someMsg;'");
+        }
+      }
+    }
+};
+
+//ADF Functions
 extern "C"
 {
     static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type);
@@ -63,25 +139,107 @@ extern "C"
 
     void app_main(void);
 }
+void setup(){
+    Serial.begin(115200);
+    Serial.println("setup testing");
+    initBLE();
+}
+//BLE 
+void loop(){
+    if (deviceConnected) {
+      pTxCharacteristic->setValue(&txValue, 1);
+      pTxCharacteristic->notify();
+      txValue++;
+      delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+    }
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected) {
+        delay(500); // give the bluetooth stack the chance to get things ready
+        pServer->startAdvertising(); // restart advertising
+        Serial.println("start advertising");
+        oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected) {
+        oldDeviceConnected = deviceConnected;
+
+        Serial.print("연결완료");
+        clearSerialBuffer();
+    }
+}
+
+//BLE Functions
+void initBLE() {
+  Serial.println("Initializing BLE...");
+  // Create the BLE Device
+  BLEDevice::init(DEVICE_NAME);
+  Serial.println("BLE Device initialized");
+  // Create the BLE Server
+  pServer = BLEDevice::createServer();
+ // pServer->setMtu(256);
+  pServer->setCallbacks(new MyServerCallbacks());
+  // Create the BLE Service
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+  Serial.println("BLE Server created");
+  // Create a BLE Characteristic
+  pTxCharacteristic = pService->createCharacteristic(
+                    CHARACTERISTIC_UUID_TX,
+                    BLECharacteristic::PROPERTY_NOTIFY
+                  ); 
+  pTxCharacteristic->addDescriptor(new BLE2902());
+  BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
+                       CHARACTERISTIC_UUID_RX,
+                      BLECharacteristic::PROPERTY_WRITE
+                    );
+  pRxCharacteristic->setCallbacks(new MyCallbacks());
+  // Start the service
+  pService->start();
+
+  Serial.println("TX Characteristic created");
+  // Start advertising
+  pServer->getAdvertising()->start();
+  Serial.println("Waiting a client connection to notify...");
+}
+
+void clearSerialBuffer() {
+  while (Serial.available() > 0) {
+    Serial.read();
+  }
+}
+void parseLangCodeAndMessage(String input, int &langCode, String &someMsg) {
+  int separatorIndex = input.indexOf(":");
+  langCode = input.substring(0, separatorIndex).toInt();
+  someMsg = input.substring(separatorIndex + 1, input.indexOf(";"));
+}
+
+String replaceChinesePunctuations(String str) {
+  const char* punctuations[] = {"，", "。", "！", "？", "；", "：", "、", "（", "）"};
+  const char* punctuationsForReplace[] = {", ", ".", "!", "?", ";", ":", "、", "(", ")"};
+  for (int i = 0; i < sizeof(punctuations) / sizeof(punctuations[0]); i++) {
+    str.replace(punctuations[i], punctuationsForReplace[i]);
+  }
+  return str;
+}
+void showLCD(int langCode, String str) {
+//   gfx->fillRect(0, 0, gfx->width(), gfx->height(), YELLOW); // 필요할 때만 전체 화면을 지우기
+//   ChangeUTF(langCode);
+//   gfx->setCursor(10, 50);
+//   gfx->println(str);
+//   Serial.println(str);
+}
+
+
+//ADF HFP 
 // HFP 오디오 스트림을 여는 함수
 static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 {
     ESP_LOGI(TAG, "HFP 오디오 열기 타입 = %d", type);
-
-  //  audio_pipeline_reset_ringbuffer(pipeline_in);
- //   audio_pipeline_reset_ringbuffer(pipeline_out);
-  //  audio_pipeline_resume(pipeline_in);
-  //  audio_pipeline_resume(pipeline_out);
 }
 
 // 이 함수는 HFP 오디오 스트림을 닫습니다. 연결이 끊어졌을 때 호출됩니다.
 static void bt_app_hf_client_audio_close(void)
 {
     ESP_LOGI(TAG, "HFP 오디오 닫기");
-    ESP_LOGI(TAG, "출력 파이프라인 일시 중지");
-    ESP_LOGI(TAG, "입력 파이프라인 일시 중지");
- //   audio_pipeline_pause(pipeline_out);
- //   audio_pipeline_pause(pipeline_in);
 }
 
 void app_main(void)
@@ -248,6 +406,8 @@ void app_main(void)
     ESP_LOGI(TAG, "출력 파이프라인 실행");
     audio_pipeline_run(pipeline_out);
     
+    setup();
+
     while (1) {
         audio_event_iface_msg_t msg;
         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
@@ -261,6 +421,7 @@ void app_main(void)
             ESP_LOGW(TAG, "[ * ] 중지 이벤트 수신");
             break;
         }
+        loop();
     }
 
     ESP_LOGI(TAG, "[ 7 ] 오디오 파이프라인 중지");
