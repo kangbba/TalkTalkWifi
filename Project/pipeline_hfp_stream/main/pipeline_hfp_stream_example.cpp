@@ -4,7 +4,6 @@
 #include "freertos/task.h"
 //LCD
 #include <Arduino_GFX_Library.h>
-//#include "u8g2_korea_kang4.h"
 
 #define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
@@ -17,7 +16,7 @@ Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false 
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#define DEVICE_NAME "TamiOn_AE98"
+#define DEVICE_NAME "TamiOn_AA00"
 #define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b" // UART service UUID
 #define CHARACTERISTIC_UUID_RX "beb5483e-36e1-4688-b7f5-ea07361b26a8" // 
 #define CHARACTERISTIC_UUID_TX "beb5483e-36e1-4688-b7f5-ea07361b26a9" // 
@@ -157,7 +156,7 @@ void initLCD(){
         Serial.println("gfx->begin() failed!");
     }
     gfx->fillScreen(YELLOW);
-   // gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
+    gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
 
     #ifdef GFX_BL
     pinMode(GFX_BL, OUTPUT);
@@ -500,6 +499,7 @@ void changeUTF(int langCodeInt) {
       //  gfx->setFont(u8g2_font_7x14_tf);
         break;
     case 5: // Chinese
+           gfx->setFont(u8g2_font_unifont_t_chinese4);
        //  gfx->setFont(u8g2_font_wqy14_t_gb2312a);
         break;
     case 6: // Arabic
@@ -520,7 +520,7 @@ void changeUTF(int langCodeInt) {
      //   gfx->setFont(u8g2_font_b16_t_japanese2);
         break;
     case 12: // Korean
-       // gfx->setFont(u8g2_korea_kang4);
+        gfx->setFont(u8g2_korea_kang4);
        // gfx->setFont(u8g2_font_ncenR12_tr);
         break;
     case 13: // Swedish

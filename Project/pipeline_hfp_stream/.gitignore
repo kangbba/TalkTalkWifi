@@ -30,7 +30,6 @@ sdkconfig
 
 # Ignore dependency and package files
 /node_modules/
-/components/
 
 # Ignore VSCode workspace settings
 .vscode/
