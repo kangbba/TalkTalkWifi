@@ -75,6 +75,7 @@ set(CORE_SRCS
 set(LIBRARY_SRCS
   libraries/U8g2/src/U8x8lib.cpp
   libraries/U8g2/src/U8g2lib.cpp
+  libraries/U8g2/src/clib/u8g2_fonts.c
 
   libraries/Arduino_GFX/src/Arduino_DataBus.cpp
   libraries/Arduino_GFX/src/Arduino_G.cpp
@@ -269,6 +270,7 @@ set(includedirs
   cores/esp32/
 
   libraries/U8g2/src
+  libraries/U8g2/src/clib
   libraries/Arduino_GFX/src
   libraries/Arduino_GFX/src/canvas
   libraries/Arduino_GFX/src/databus

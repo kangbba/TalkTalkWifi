@@ -4,10 +4,16 @@
 #include "freertos/task.h"
 //LCD
 #include <Arduino_GFX_Library.h>
+#include "u8g2.h"
 
 #define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
 Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false /* IPS */);
+uint16_t lcd_backgroundColor;
+uint16_t lcd_textColor; 
+
+//BLACK -> 화이트
+//WHITE -> 파랑
 
 
 //BLE
@@ -16,7 +22,7 @@ Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false 
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#define DEVICE_NAME "TamiOn_AA00"
+#define DEVICE_NAME "TamiOn_AA02"
 #define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b" // UART service UUID
 #define CHARACTERISTIC_UUID_RX "beb5483e-36e1-4688-b7f5-ea07361b26a8" // 
 #define CHARACTERISTIC_UUID_TX "beb5483e-36e1-4688-b7f5-ea07361b26a9" // 
@@ -49,13 +55,14 @@ extern "C"
 
     static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
     static audio_pipeline_handle_t pipeline_in, pipeline_out;
-
     static int g_hfp_audio_rate = 16000;
 }
 
 //LCD Functions
 void changeUTF(int langCodeInt);
-void showLCD(int langCode, String str);
+void initLCD();
+void setTextLCD(int langCode, String str, int16_t c, int16_t x, int16_t y);
+void clearLCD();
 
 //BLE Functions
 void initBLE();
@@ -63,17 +70,50 @@ void clearSerialBuffer();
 void parseLangCodeAndMessage(String input, int &langCode, String &someMsg);
 String replaceChinesePunctuations(String str);
 
+//LCD Functions
+void initLCD(){
+    // Initialize TFT display
+    if (!gfx->begin()) {
+        Serial.println("gfx->begin() failed!");
+    }
+    
+    clearSerialBuffer();
+    lcd_backgroundColor = WHITE;
+    lcd_textColor = BLACK;
+    gfx->fillScreen(lcd_backgroundColor);
+    gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
+    #ifdef GFX_BL
+    pinMode(GFX_BL, OUTPUT);
+    digitalWrite(GFX_BL, HIGH);
+    #endif
+    clearLCD();
+    setTextLCD(0, "TAMION3", lcd_textColor, 100, 120);
 
-
+}
+void clearLCD(){
+  gfx->fillRect(0, 0, gfx->width(), gfx->height(), lcd_backgroundColor); // 필요할 때만 전체 화면을 지우기
+}
+void setTextLCD(int langCode, String str, int16_t c, int16_t x, int16_t y){
+    gfx->setTextColor(c); //TEXT COLOR -> BLACK
+    gfx->setTextSize(2);
+    changeUTF(langCode);
+    gfx->setCursor(x, y);
+    gfx->println(str);
+    Serial.println(str);
+}
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
         Serial.print("onConnect : ");
+        clearLCD();
+        setTextLCD(0, "connected", lcd_textColor, 50, 50);
     };
 
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
         Serial.print("onDisconnect: ");
+        clearLCD();
+        setTextLCD(0, "disconnected", lcd_textColor, 50, 50);
     }
 };
 
@@ -100,8 +140,10 @@ class MyCallbacks: public BLECharacteristicCallbacks {
             parseLangCodeAndMessage(fullMsg, langCode, someMsg);
             if (langCode == 5) {
                 someMsg = replaceChinesePunctuations(someMsg);
-            }
-            showLCD(langCode, someMsg);
+            } 
+            clearLCD();
+            setTextLCD(langCode, someMsg, lcd_textColor, 10, 70);
+            clearSerialBuffer();
         } 
         else {
             Serial.println("Invalid input format. It should be in the format 'langcode:someMsg;'");
@@ -113,6 +155,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 //ADF Functions
 extern "C"
 {
+    static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *param);
     static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type);
     static void bt_app_hf_client_audio_close(void);
     i2s_stream_cfg_t create_i2s_stream_cfg(audio_stream_type_t stream_type, i2s_port_t port, uint32_t rate, i2s_bits_per_sample_t bits) {
@@ -150,41 +193,17 @@ extern "C"
 
     void app_main(void);
 }
-void initLCD(){
-    // Initialize TFT display
-    if (!gfx->begin()) {
-        Serial.println("gfx->begin() failed!");
-    }
-    gfx->fillScreen(YELLOW);
-    gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
-
-    #ifdef GFX_BL
-    pinMode(GFX_BL, OUTPUT);
-    digitalWrite(GFX_BL, HIGH);
-    #endif
-
-    gfx->setTextColor(BLACK); //TEXT COLOR -> BLACK
-    gfx->setTextSize(2);
-
-    clearSerialBuffer();
-}
-void setup(){
-    Serial.begin(115200);
-    Serial.println("setup testing");
-    initBLE();
-    initLCD();
-}
 //BLE 
 void loop(){
     if (deviceConnected) {
       pTxCharacteristic->setValue(&txValue, 1);
       pTxCharacteristic->notify();
       txValue++;
-      delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+      vTaskDelay(10 / portTICK_PERIOD_MS); // FreeRTOS delay
     }
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
-        delay(500); // give the bluetooth stack the chance to get things ready
+        vTaskDelay(500 / portTICK_PERIOD_MS); // give the bluetooth stack the chance to get things ready
         pServer->startAdvertising(); // restart advertising
         Serial.println("start advertising");
         oldDeviceConnected = deviceConnected;
@@ -192,7 +211,6 @@ void loop(){
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
         oldDeviceConnected = deviceConnected;
-
         Serial.print("연결완료");
         clearSerialBuffer();
     }
@@ -250,16 +268,26 @@ String replaceChinesePunctuations(String str) {
   }
   return str;
 }
-void showLCD(int langCode, String str) {
-  gfx->fillRect(0, 0, gfx->width(), gfx->height(), YELLOW); // 필요할 때만 전체 화면을 지우기
-  changeUTF(langCode);
-  gfx->setCursor(10, 50);
-  gfx->println(str);
-  Serial.println(str);
-}
 
 
 //ADF HFP 
+static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *param) {
+    switch (event) {
+        case ESP_HF_CLIENT_CONNECTION_STATE_EVT:
+            ESP_LOGI(TAG, "HFP Client connection state changed: %d", param->conn_stat.state);
+            break;
+        case ESP_HF_CLIENT_AUDIO_STATE_EVT:
+            ESP_LOGI(TAG, "HFP Client audio state changed: %d", param->audio_stat.state);
+            break;
+        case ESP_HF_CLIENT_BVRA_EVT:
+            ESP_LOGI(TAG, "Voice recognition state changed: %d", param->bvra.value);
+            break;
+        default:
+            ESP_LOGI(TAG, "Unhandled HFP event: %d", event);
+            break;
+    }
+}
+
 // HFP 오디오 스트림을 여는 함수
 static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 {
@@ -272,6 +300,12 @@ static void bt_app_hf_client_audio_close(void)
     ESP_LOGI(TAG, "HFP 오디오 닫기");
 }
 
+void setup(){
+    Serial.begin(115200);
+    Serial.println("setup testing");
+    initBLE();
+    initLCD();
+}
 void app_main(void)
 {
     // NVS(Non-Volatile Storage)를 초기화합니다.
@@ -313,7 +347,7 @@ void app_main(void)
 
     // Bluetooth 장치 이름을 설정합니다.
     esp_bt_dev_set_device_name(DEVICE_NAME);
-
+    
     // HFP 오디오 스트림 열기 및 닫기 이벤트 콜백을 등록합니다.
     hfp_open_and_close_evt_cb_register(bt_app_hf_client_audio_open, bt_app_hf_client_audio_close);
 
@@ -490,42 +524,49 @@ void app_main(void)
 
 void changeUTF(int langCodeInt) {
   switch (langCodeInt) {
+    case 0: // System
+        gfx->setFont(u8g2_font_ncenR12_tr);
+        break;
     case 1: // English
-      //  gfx->setFont(u8g2_font_ncenR12_tr);
+        gfx->setFont(u8g2_font_ncenR12_tr);
         break;
     case 2: // Spanish
     case 3: // French
     case 4: // German
-      //  gfx->setFont(u8g2_font_7x14_tf);
+         gfx->setFont(u8g2_font_7x14_tf);
         break;
     case 5: // Chinese
-           gfx->setFont(u8g2_font_unifont_t_chinese4);
-       //  gfx->setFont(u8g2_font_wqy14_t_gb2312a);
+        //gfx->setFont(u8g2_font_unifont_t_chinese4);
+        gfx->setFont(u8g2_font_wqy14_t_gb2312a);
         break;
     case 6: // Arabic
-      //  gfx->setFont(u8g2_font_cu12_t_arabic); 
+        gfx->setFont(u8g2_font_cu12_t_arabic); 
         break;
     case 7: // Russian
-      //  gfx->setFont(u8g2_font_cu12_t_cyrillic);
+        gfx->setFont(u8g2_font_cu12_t_cyrillic);
         break;
     case 8: // Portuguese
     case 11: // Dutch
     case 22: // Hungarian
     case 24: // Romanian
     case 41: // Indonesian
-     //   gfx->setFont(u8g2_font_7x14_tf);
+        gfx->setFont(u8g2_font_7x14_tf);
         break;
-    case 9: // Italian
     case 10: // Japanese
-     //   gfx->setFont(u8g2_font_b16_t_japanese2);
+      //  gfx->setFont(u8g2_font_unifont_t_japanese1);
+        gfx->setFont(u8g2_font_b16_t_japanese2);
         break;
     case 12: // Korean
-        gfx->setFont(u8g2_korea_kang4);
-       // gfx->setFont(u8g2_font_ncenR12_tr);
+        gfx->setFont(u8g2_korea_kang4); 
+        //gfx->setFont(u8g2_font_unifont_t_korean1);
+      //  gfx->setFont(u8g2_font_ncenR12_tr);
         break;
+    case 15: // Polish
+        gfx->setFont(u8g2_font_unifont_t_polish);
+        break;
+    case 9: // Italian
     case 13: // Swedish
     case 14: // Turkish
-    case 15: // Polish
     case 16: // Danish
     case 17: // Norwegian
     case 18: // Finnish
@@ -539,19 +580,19 @@ void changeUTF(int langCodeInt) {
     case 31: // Slovenian
     case 32: // Croatian
     case 33: // Estonian
-   //     gfx->setFont(u8g2_font_7x14_tf);
+        gfx->setFont(u8g2_font_7x14_tf);
         break;
     case 20: // Thai
-     //   gfx->setFont(u8g2_font_etl24thai_t);
+        gfx->setFont(u8g2_font_etl24thai_t);
         break;
     case 21: // Greek
-      //  gfx->setFont(u8g2_font_unifont_t_greek);
+        gfx->setFont(u8g2_font_unifont_t_greek);
         break;
     case 26: // Vietnamese
-      //  gfx->setFont(u8g2_font_unifont_t_vietnamese2);
+        gfx->setFont(u8g2_font_unifont_t_vietnamese2);
         break;
     default:
-     //   gfx->setFont(u8g2_font_unifont_t_symbols);
+        gfx->setFont(u8g2_font_unifont_t_symbols); 
         break;
   }
 }
