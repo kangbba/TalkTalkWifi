@@ -1,37 +1,18 @@
 #include "Arduino.h"
 
+#include "Device_Info.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 //LCD
-#include <Arduino_GFX_Library.h>
-#include "u8g2.h"
-
-#define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
-Arduino_DataBus *bus = create_default_Arduino_DataBus();
-Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false /* IPS */);
-uint16_t lcd_backgroundColor;
-uint16_t lcd_textColor; 
+#include <LCD_Screen.h>
 
 //BLACK -> 화이트
 //WHITE -> 파랑
 
 
 //BLE
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-
-#define DEVICE_NAME "TamiOn_AA02"
-#define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b" // UART service UUID
-#define CHARACTERISTIC_UUID_RX "beb5483e-36e1-4688-b7f5-ea07361b26a8" // 
-#define CHARACTERISTIC_UUID_TX "beb5483e-36e1-4688-b7f5-ea07361b26a9" // 
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
-
-BLEServer *pServer = NULL;
-BLECharacteristic * pTxCharacteristic;
-uint8_t txValue = 0;
+#include "BLE_Controller.h"
 
 //ADF
 extern "C"
@@ -57,101 +38,7 @@ extern "C"
     static audio_pipeline_handle_t pipeline_in, pipeline_out;
     static int g_hfp_audio_rate = 16000;
 }
-
-//LCD Functions
-void changeUTF(int langCodeInt);
-void initLCD();
-void setTextLCD(int langCode, String str, int16_t c, int16_t x, int16_t y);
-void clearLCD();
-
 //BLE Functions
-void initBLE();
-void clearSerialBuffer();
-void parseLangCodeAndMessage(String input, int &langCode, String &someMsg);
-String replaceChinesePunctuations(String str);
-
-//LCD Functions
-void initLCD(){
-    // Initialize TFT display
-    if (!gfx->begin()) {
-        Serial.println("gfx->begin() failed!");
-    }
-    
-    clearSerialBuffer();
-    lcd_backgroundColor = WHITE;
-    lcd_textColor = BLACK;
-    gfx->fillScreen(lcd_backgroundColor);
-    gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
-    #ifdef GFX_BL
-    pinMode(GFX_BL, OUTPUT);
-    digitalWrite(GFX_BL, HIGH);
-    #endif
-    clearLCD();
-    setTextLCD(0, "TAMION3", lcd_textColor, 100, 120);
-
-}
-void clearLCD(){
-  gfx->fillRect(0, 0, gfx->width(), gfx->height(), lcd_backgroundColor); // 필요할 때만 전체 화면을 지우기
-}
-void setTextLCD(int langCode, String str, int16_t c, int16_t x, int16_t y){
-    gfx->setTextColor(c); //TEXT COLOR -> BLACK
-    gfx->setTextSize(2);
-    changeUTF(langCode);
-    gfx->setCursor(x, y);
-    gfx->println(str);
-    Serial.println(str);
-}
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-        Serial.print("onConnect : ");
-        clearLCD();
-        setTextLCD(0, "connected", lcd_textColor, 50, 50);
-    };
-
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-        Serial.print("onDisconnect: ");
-        clearLCD();
-        setTextLCD(0, "disconnected", lcd_textColor, 50, 50);
-    }
-};
-
-class MyCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string rxValue = pCharacteristic->getValue();
-      if (rxValue.length() > 0) {
-        Serial.println("********");
-        Serial.print("Received Value: ");
-        for (int i = 0; i < rxValue.length(); i++)
-          Serial.print(rxValue[i]);
-
-        Serial.println();
-
-        String fullMsg = rxValue.c_str(); 
-
-        Serial.print("Received Value to String : ");
-        Serial.println();
-        Serial.print(fullMsg);
-
-        if (fullMsg.length() > 0 && fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1) {
-            int langCode;
-            String someMsg;
-            parseLangCodeAndMessage(fullMsg, langCode, someMsg);
-            if (langCode == 5) {
-                someMsg = replaceChinesePunctuations(someMsg);
-            } 
-            clearLCD();
-            setTextLCD(langCode, someMsg, lcd_textColor, 10, 70);
-            clearSerialBuffer();
-        } 
-        else {
-            Serial.println("Invalid input format. It should be in the format 'langcode:someMsg;'");
-        }
-      }
-    }
-};
-
 //ADF Functions
 extern "C"
 {
@@ -195,78 +82,7 @@ extern "C"
 }
 //BLE 
 void loop(){
-    if (deviceConnected) {
-      pTxCharacteristic->setValue(&txValue, 1);
-      pTxCharacteristic->notify();
-      txValue++;
-      vTaskDelay(10 / portTICK_PERIOD_MS); // FreeRTOS delay
-    }
-    // disconnecting
-    if (!deviceConnected && oldDeviceConnected) {
-        vTaskDelay(500 / portTICK_PERIOD_MS); // give the bluetooth stack the chance to get things ready
-        pServer->startAdvertising(); // restart advertising
-        Serial.println("start advertising");
-        oldDeviceConnected = deviceConnected;
-    }
-    // connecting
-    if (deviceConnected && !oldDeviceConnected) {
-        oldDeviceConnected = deviceConnected;
-        Serial.print("연결완료");
-        clearSerialBuffer();
-    }
-}
-
-//BLE Functions
-void initBLE() {
-  Serial.println("Initializing BLE...");
-  // Create the BLE Device
-  BLEDevice::init(DEVICE_NAME);
-  Serial.println("BLE Device initialized");
-  // Create the BLE Server
-  pServer = BLEDevice::createServer();
- // pServer->setMtu(256);
-  pServer->setCallbacks(new MyServerCallbacks());
-  // Create the BLE Service
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-  Serial.println("BLE Server created");
-  // Create a BLE Characteristic
-  pTxCharacteristic = pService->createCharacteristic(
-                    CHARACTERISTIC_UUID_TX,
-                    BLECharacteristic::PROPERTY_NOTIFY
-                  ); 
-  pTxCharacteristic->addDescriptor(new BLE2902());
-  BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
-                       CHARACTERISTIC_UUID_RX,
-                      BLECharacteristic::PROPERTY_WRITE
-                    );
-  pRxCharacteristic->setCallbacks(new MyCallbacks());
-  // Start the service
-  pService->start();
-
-  Serial.println("TX Characteristic created");
-  // Start advertising
-  pServer->getAdvertising()->start();
-  Serial.println("Waiting a client connection to notify...");
-}
-
-void clearSerialBuffer() {
-  while (Serial.available() > 0) {
-    Serial.read();
-  }
-}
-void parseLangCodeAndMessage(String input, int &langCode, String &someMsg) {
-  int separatorIndex = input.indexOf(":");
-  langCode = input.substring(0, separatorIndex).toInt();
-  someMsg = input.substring(separatorIndex + 1, input.indexOf(";"));
-}
-
-String replaceChinesePunctuations(String str) {
-  const char* punctuations[] = {"，", "。", "！", "？", "；", "：", "、", "（", "）"};
-  const char* punctuationsForReplace[] = {", ", ".", "!", "?", ";", ":", "、", "(", ")"};
-  for (int i = 0; i < sizeof(punctuations) / sizeof(punctuations[0]); i++) {
-    str.replace(punctuations[i], punctuationsForReplace[i]);
-  }
-  return str;
+    loopBLE();  // Run BLE loop
 }
 
 
@@ -520,79 +336,4 @@ void app_main(void)
     audio_element_deinit(i2s_stream_reader);
     audio_element_deinit(hfp_out_stream);
     esp_periph_set_destroy(set);
-}
-
-void changeUTF(int langCodeInt) {
-  switch (langCodeInt) {
-    case 0: // System
-        gfx->setFont(u8g2_font_ncenR12_tr);
-        break;
-    case 1: // English
-        gfx->setFont(u8g2_font_ncenR12_tr);
-        break;
-    case 2: // Spanish
-    case 3: // French
-    case 4: // German
-         gfx->setFont(u8g2_font_7x14_tf);
-        break;
-    case 5: // Chinese
-        //gfx->setFont(u8g2_font_unifont_t_chinese4);
-        gfx->setFont(u8g2_font_wqy14_t_gb2312a);
-        break;
-    case 6: // Arabic
-        gfx->setFont(u8g2_font_cu12_t_arabic); 
-        break;
-    case 7: // Russian
-        gfx->setFont(u8g2_font_cu12_t_cyrillic);
-        break;
-    case 8: // Portuguese
-    case 11: // Dutch
-    case 22: // Hungarian
-    case 24: // Romanian
-    case 41: // Indonesian
-        gfx->setFont(u8g2_font_7x14_tf);
-        break;
-    case 10: // Japanese
-      //  gfx->setFont(u8g2_font_unifont_t_japanese1);
-        gfx->setFont(u8g2_font_b16_t_japanese2);
-        break;
-    case 12: // Korean
-        gfx->setFont(u8g2_korea_kang4); 
-        //gfx->setFont(u8g2_font_unifont_t_korean1);
-      //  gfx->setFont(u8g2_font_ncenR12_tr);
-        break;
-    case 15: // Polish
-        gfx->setFont(u8g2_font_unifont_t_polish);
-        break;
-    case 9: // Italian
-    case 13: // Swedish
-    case 14: // Turkish
-    case 16: // Danish
-    case 17: // Norwegian
-    case 18: // Finnish
-    case 19: // Czech
-    case 23: // Hebrew
-    case 25: // Ukrainian
-    case 27: // Icelandic
-    case 28: // Bulgarian
-    case 29: // Lithuanian
-    case 30: // Latvian
-    case 31: // Slovenian
-    case 32: // Croatian
-    case 33: // Estonian
-        gfx->setFont(u8g2_font_7x14_tf);
-        break;
-    case 20: // Thai
-        gfx->setFont(u8g2_font_etl24thai_t);
-        break;
-    case 21: // Greek
-        gfx->setFont(u8g2_font_unifont_t_greek);
-        break;
-    case 26: // Vietnamese
-        gfx->setFont(u8g2_font_unifont_t_vietnamese2);
-        break;
-    default:
-        gfx->setFont(u8g2_font_unifont_t_symbols); 
-        break;
-  }
 }
