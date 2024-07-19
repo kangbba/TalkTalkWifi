@@ -4,12 +4,9 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
 //LCD
 #include <LCD_Screen.h>
-
-//BLACK -> 화이트
-//WHITE -> 파랑
-
 
 //BLE
 #include "BLE_Controller.h"
