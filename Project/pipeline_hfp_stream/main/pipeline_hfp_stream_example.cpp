@@ -64,7 +64,7 @@ extern "C"
                 .fixed_mclk = 0
             },
             .use_alc = false,
-            .volume = 100,
+            .volume = 200,
             .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,
             .task_stack = I2S_STREAM_TASK_STACK,
             .task_core = I2S_STREAM_TASK_CORE,
@@ -172,7 +172,7 @@ void app_main(void)
 
     // HFP 이벤트 핸들러 등록
     ESP_LOGI(TAG, "[ 1 ] HFP 이벤트 핸들러 등록");
-    // esp_hf_client_register_callback(hfp_event_handler);
+    //esp_hf_client_register_callback(hfp_event_handler);
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0))
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
@@ -219,7 +219,6 @@ void app_main(void)
     #endif
     #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
     //i2s_cfg1.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
-    i2s_stream_reader = i2s_stream_init(&i2s_cfg1);
 
     i2s_stream_cfg_t i2s_cfg2 = create_i2s_stream_cfg(AUDIO_STREAM_WRITER, I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT);
     #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
@@ -231,6 +230,7 @@ void app_main(void)
     i2s_cfg2.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
     #endif
  //   i2s_cfg2.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
+    i2s_stream_reader = i2s_stream_init(&i2s_cfg1);
     i2s_stream_writer = i2s_stream_init(&i2s_cfg2);
 
     ESP_LOGI(TAG, "[3.2] HFP 스트림 가져오기");
