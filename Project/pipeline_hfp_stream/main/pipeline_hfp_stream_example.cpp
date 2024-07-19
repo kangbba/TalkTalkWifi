@@ -4,9 +4,12 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
 //LCD
 #include <LCD_Screen.h>
+
+//BLACK -> 화이트
+//WHITE -> 파랑
+
 
 //BLE
 #include "BLE_Controller.h"
@@ -61,7 +64,7 @@ extern "C"
                 .fixed_mclk = 0
             },
             .use_alc = false,
-            .volume = 0,
+            .volume = 100,
             .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,
             .task_stack = I2S_STREAM_TASK_STACK,
             .task_core = I2S_STREAM_TASK_CORE,
@@ -196,9 +199,8 @@ void app_main(void)
     pipeline_out = audio_pipeline_init(&pipeline_cfg);
 
     ESP_LOGI(TAG, "[3.1] 코덱 칩에 데이터를 쓰고 코덱 칩에서 데이터를 읽기 위한 i2s 스트림 생성");
-    i2s_stream_cfg_t i2s_cfg1 = create_i2s_stream_cfg(AUDIO_STREAM_WRITER, I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT);
+    i2s_stream_cfg_t i2s_cfg1 = create_i2s_stream_cfg(AUDIO_STREAM_READER, I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT);
 
-    i2s_cfg1.type = AUDIO_STREAM_READER;
     #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
         i2s_cfg1.chan_cfg.id = CODEC_ADC_I2S_PORT;
         i2s_cfg1.std_cfg.clk_cfg.sample_rate_hz = g_hfp_audio_rate;
@@ -216,20 +218,19 @@ void app_main(void)
         i2s_cfg1.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
     #endif
     #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
-    i2s_cfg1.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
+    //i2s_cfg1.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
     i2s_stream_reader = i2s_stream_init(&i2s_cfg1);
 
     i2s_stream_cfg_t i2s_cfg2 = create_i2s_stream_cfg(AUDIO_STREAM_WRITER, I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT);
-    i2s_cfg2.type = AUDIO_STREAM_WRITER;
     #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
     i2s_cfg2.std_cfg.slot_cfg.slot_mode = I2S_SLOT_MODE_MONO;
     i2s_cfg2.std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;
     i2s_cfg2.std_cfg.clk_cfg.sample_rate_hz = g_hfp_audio_rate;
     #else
     i2s_cfg2.i2s_config.sample_rate = g_hfp_audio_rate;
-    i2s_cfg2.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
+    i2s_cfg2.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
     #endif
-    i2s_cfg2.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
+ //   i2s_cfg2.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
     i2s_stream_writer = i2s_stream_init(&i2s_cfg2);
 
     ESP_LOGI(TAG, "[3.2] HFP 스트림 가져오기");
