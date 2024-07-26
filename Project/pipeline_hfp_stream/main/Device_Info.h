@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define DEVICE_NAME "TamiOn_AA77"
+#define DEVICE_NAME "TamiOn_AA83"
 
 #ifdef __cplusplus
 }

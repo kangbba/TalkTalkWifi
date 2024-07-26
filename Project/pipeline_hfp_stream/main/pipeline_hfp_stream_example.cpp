@@ -19,6 +19,8 @@ extern "C"
 {
     #include "audio_hal.h"
     #include <string.h>
+    #include "esp_console.h"
+    #include "esp_err.h"
     #include "nvs_flash.h"
     #include "esp_log.h"
     #include "esp_peripherals.h"
@@ -36,6 +38,7 @@ extern "C"
 
     static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
     static audio_pipeline_handle_t pipeline_in, pipeline_out;
+    static audio_board_handle_t  board_handle;
     static int g_hfp_audio_rate = 16000;
 }
 //BLE Functions
@@ -54,7 +57,7 @@ extern "C"
                 .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX),
                 .sample_rate = rate,
                 .bits_per_sample = bits,
-                .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+                .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,
                 .communication_format = I2S_COMM_FORMAT_STAND_I2S,
                 .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2 | ESP_INTR_FLAG_IRAM,
                 .dma_buf_count = 3,
@@ -63,7 +66,7 @@ extern "C"
                 .tx_desc_auto_clear = true,
                 .fixed_mclk = 0
             },
-            .use_alc = false,
+            .use_alc = true,
             .volume = 200,
             .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,
             .task_stack = I2S_STREAM_TASK_STACK,
@@ -77,14 +80,12 @@ extern "C"
         };
         return cfg;
     }
-
     void app_main(void);
 }
 //BLE 
 void loop(){
     loopBLE();  // Run BLE loop
 }
-
 
 //ADF HFP 
 static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *param) {
@@ -104,10 +105,42 @@ static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_p
     }
 }
 
+void set_max_volume(void){
+    ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
+    int volume = 100;  // 0-100 범위, 여기서는 최대 값 100으로 설정
+    esp_err_t ret = audio_hal_set_volume(board_handle->audio_hal, volume);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
+    } else {
+        int current_volume = 0;
+        ret = audio_hal_get_volume(board_handle->audio_hal, &current_volume);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "볼륨 가져오기 실패: %d", ret);
+        } else {
+            ESP_LOGI(TAG, "볼륨 설정 성공: %d (현재 볼륨: %d)", ret, current_volume);
+        }
+    }
+    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 12);
+    if (ret == ESP_OK) {
+        printf("게인 볼륨 업데이트 성공2 \n");
+    } else {
+        printf("게인 볼륨 업데이트 실패2, Error code: %d\n", ret);
+        // 추가적인 오류 처리 로직을 여기에 추가할 수 있습니다.
+    }
+    // // ALC 볼륨 설정
+    // ret = i2s_alc_volume_set(i2s_stream_reader, 64);
+    // if (ret == ESP_OK) {
+    //     printf("ALC 볼륨 설정 성공\n");
+    // } else {
+    //     printf("ALC 볼륨 설정 실패, 오류 코드: %d\n", ret);
+    // }
+}
+
 // HFP 오디오 스트림을 여는 함수
 static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 {
     ESP_LOGI(TAG, "HFP 오디오 열기 타입 = %d", type);
+    set_max_volume();
 }
 
 // 이 함수는 HFP 오디오 스트림을 닫습니다. 연결이 끊어졌을 때 호출됩니다.
@@ -126,11 +159,11 @@ void app_main(void)
 {
     // NVS(Non-Volatile Storage)를 초기화합니다.
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-        // NVS 파티션이 손상된 경우, NVS를 지우고 다시 초기화합니다.
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
+    ESP_ERROR_CHECK(err);
 
     // 로그 레벨을 설정합니다.
     esp_log_level_set("*", ESP_LOG_INFO);
@@ -183,15 +216,8 @@ void app_main(void)
 
 
     ESP_LOGI(TAG, "[ 2 ] 코덱 칩 시작");
-    audio_board_handle_t board_handle = audio_board_init();
+    board_handle = audio_board_init();
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START);
-
-    ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
-    int volume = 100;  // 0-100 범위, 여기서는 80%로 설정
-    esp_err_t ret = audio_hal_set_volume(board_handle->audio_hal, volume);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set volume: %d", ret);
-    }
 
     ESP_LOGI(TAG, "[ 3 ] 재생을 위한 오디오 파이프라인 생성");
     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
@@ -215,7 +241,7 @@ void app_main(void)
     #if defined(CONFIG_ESP_LYRAT_MINI_V1_1_BOARD) || defined(CONFIG_ESP_LYRATD_MSC_V2_1_BOARD) || defined(CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
         i2s_cfg1.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
     #else
-        i2s_cfg1.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
+//        i2s_cfg1.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
     #endif
     #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
     //i2s_cfg1.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
@@ -227,7 +253,7 @@ void app_main(void)
     i2s_cfg2.std_cfg.clk_cfg.sample_rate_hz = g_hfp_audio_rate;
     #else
     i2s_cfg2.i2s_config.sample_rate = g_hfp_audio_rate;
-    i2s_cfg2.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
+ //   i2s_cfg2.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
     #endif
  //   i2s_cfg2.out_rb_size = 8 * 1024; // 링 버퍼 크기 설정
     i2s_stream_reader = i2s_stream_init(&i2s_cfg1);
@@ -284,6 +310,16 @@ void app_main(void)
     ESP_LOGI(TAG, "출력 파이프라인 실행");
     audio_pipeline_run(pipeline_out);
     
+    set_max_volume();
+
+    // 명령어 직접 실행 및 예외 처리
+    esp_err_t ret = esp_console_run("vu 0 15", NULL);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to execute command: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Command executed successfully");
+    }
+
     setup();
 
     while (1) {
