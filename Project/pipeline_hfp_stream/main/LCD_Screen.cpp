@@ -1,16 +1,19 @@
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
 #include "LCD_Screen.h"
-
+#include "background_img.h" // 생성된 헤더 파일을 포함시킵니다.
 #include "Device_Info.h"
 
 #define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
 
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
 Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false /* IPS */);
-#define LCD_TEXT_COLOR BLACK
-#define LCD_BACKGROUND_COLOR WHITE
+#define LCD_TEXT_COLOR WHITE
+#define LCD_BACKGROUND_COLOR BLACK
 
+void showSpeakNowScreen(){
+
+}
 void changeUTF(int langCodeInt) {
   switch (langCodeInt) {
     case 0: // System
@@ -90,19 +93,26 @@ void initLCD() {
     if (!gfx->begin()) {
         Serial.println("gfx->begin() failed!");
     }
-
-    gfx->fillScreen(LCD_BACKGROUND_COLOR);
+    //gfx->fillScreen(LCD_BACKGROUND_COLOR);
+    
+    gfx->draw16bitRGBBitmap(0, 0, background_img, 320, 280);
     gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
 #ifdef GFX_BL
     pinMode(GFX_BL, OUTPUT);
     digitalWrite(GFX_BL, HIGH);
 #endif
     clearLCD();
-    setTextLCD(0, DEVICE_NAME, 100, 120);
+    showOpeningScreen();
 }
-
+void showOpeningScreen(){
+  //gfx->draw16bitRGBBitmap(0, 0, image_data, 320, 280);
+  //setTextLCD(0, DEVICE_NAME, 80, 120);
+}
+void showBackground(){
+}
 void clearLCD() {
     gfx->fillRect(0, 0, gfx->width(), gfx->height(), LCD_BACKGROUND_COLOR); // Clear the screen
+    //gfx->draw16bitRGBBitmap(0, 0, background_img, 320, 280);
 }
 
 void setTextLCD(int langCode, String str, int16_t x, int16_t y) {

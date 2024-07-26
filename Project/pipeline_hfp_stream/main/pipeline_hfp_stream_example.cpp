@@ -106,21 +106,14 @@ static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_p
 }
 
 void set_max_volume(void){
-    ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
-    int volume = 100;  // 0-100 범위, 여기서는 최대 값 100으로 설정
-    esp_err_t ret = audio_hal_set_volume(board_handle->audio_hal, volume);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
+    esp_err_t ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_MIC, 10);
+    if (ret == ESP_OK) {
+        printf("게인 볼륨 업데이트 성공2 \n");
     } else {
-        int current_volume = 0;
-        ret = audio_hal_get_volume(board_handle->audio_hal, &current_volume);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "볼륨 가져오기 실패: %d", ret);
-        } else {
-            ESP_LOGI(TAG, "볼륨 설정 성공: %d (현재 볼륨: %d)", ret, current_volume);
-        }
+        printf("게인 볼륨 업데이트 실패2, Error code: %d\n", ret);
+        // 추가적인 오류 처리 로직을 여기에 추가할 수 있습니다.
     }
-    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 12);
+    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 10);
     if (ret == ESP_OK) {
         printf("게인 볼륨 업데이트 성공2 \n");
     } else {
@@ -134,6 +127,20 @@ void set_max_volume(void){
     // } else {
     //     printf("ALC 볼륨 설정 실패, 오류 코드: %d\n", ret);
     // }
+    ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
+    int volume = 85;  // 0-100 범위, 여기서는 최대 값 100으로 설정
+    ret = audio_hal_set_volume(board_handle->audio_hal, volume);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
+    } else {
+        int current_volume = 0;
+        ret = audio_hal_get_volume(board_handle->audio_hal, &current_volume);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "볼륨 가져오기 실패: %d", ret);
+        } else {
+            ESP_LOGI(TAG, "볼륨 설정 성공: %d (현재 볼륨: %d)", ret, current_volume);
+        }
+    }
 }
 
 // HFP 오디오 스트림을 여는 함수

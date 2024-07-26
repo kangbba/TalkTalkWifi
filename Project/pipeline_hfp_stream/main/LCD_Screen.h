@@ -10,5 +10,7 @@ void changeUTF(int langCodeInt);
 void initLCD();
 void setTextLCD(int langCode, String str, int16_t x, int16_t y);
 void clearLCD();
+void showOpeningScreen();
+void showSpeakNowScreen();
 
 #endif // LCD_SCREEN_H

@@ -33,7 +33,14 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
         Serial.println();
         Serial.print(fullMsg);
 
-        if (fullMsg.length() > 0 && fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1) {
+        if (fullMsg.length() > 0) {
+          if(fullMsg == "/speak_now"){
+            clearLCD();
+            setTextLCD(12, "지금 말하세요", 60, 120);
+            clearSerialBuffer();
+          }
+          else if(fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1)
+          {
             int langCode;
             String someMsg;
             parseLangCodeAndMessage(fullMsg, langCode, someMsg);
@@ -43,6 +50,7 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
             clearLCD();
             setTextLCD(langCode, someMsg, 10, 70);
             clearSerialBuffer();
+          }
         } else {
             Serial.println("Invalid input format. It should be in the format 'langcode:someMsg;'");
         }
