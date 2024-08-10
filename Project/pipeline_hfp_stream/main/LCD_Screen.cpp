@@ -8,7 +8,7 @@
 
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
 Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false /* IPS */);
-#define LCD_TEXT_COLOR WHITE
+#define LCD_TEXT_COLOR YELLOW
 #define LCD_BACKGROUND_COLOR BLACK
 
 void showSpeakNowScreen(){
@@ -106,7 +106,7 @@ void initLCD() {
 }
 void showOpeningScreen(){
   //gfx->draw16bitRGBBitmap(0, 0, image_data, 320, 280);
-  //setTextLCD(0, DEVICE_NAME, 80, 120);
+    setTextLCD(0, DEVICE_NAME, 40, 120);
 }
 void showBackground(){
 }
