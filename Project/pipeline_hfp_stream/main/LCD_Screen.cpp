@@ -126,7 +126,8 @@ void initLCD() {
     showOpeningScreen();
 }
 void showOpeningScreen(){
-    gfx->draw16bitRGBBitmap(60, 70, background_img, 200,  87);
+    clearLCD();
+    gfx->draw16bitRGBBitmap(76, 70, background_img, 150,  100);
    // setTextLCD(0, DEVICE_NAME, 40, 120);
 }
 void showBackground(){
@@ -146,7 +147,8 @@ void setTextLCD(int langCode, String str, int16_t x, int16_t y) {
 }
 
 void drawMicIcon() {
-    gfx->draw16bitRGBBitmap(60, 70, mic_img, 200,  87);
+    clearLCD();
+    gfx->draw16bitRGBBitmap(76, 70, micicon_img, 150,  100);
 }
 
 

@@ -1,11 +1,7 @@
-#ifndef IMAGE_DATA_H
-#define IMAGE_DATA_H
 
 #include <stdint.h>
 
-#define IMAGE_WIDTH 200  // Image width
-#define IMAGE_HEIGHT 87  // Image height
+#define IMAGE_WIDTH 150  // Image width
+#define IMAGE_HEIGHT 100  // Image height
 
-extern const uint16_t mic_img[IMAGE_WIDTH * IMAGE_HEIGHT];
-
-#endif // IMAGE_DATA_H
+extern const uint16_t micicon_img[IMAGE_WIDTH * IMAGE_HEIGHT];
