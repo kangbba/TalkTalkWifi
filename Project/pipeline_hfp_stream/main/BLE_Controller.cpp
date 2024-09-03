@@ -2,6 +2,7 @@
 #include "device_info.h"
 #include "Lcd_Screen.h"
 
+
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
@@ -34,10 +35,16 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
         Serial.print(fullMsg);
 
         if (fullMsg.length() > 0) {
-          if(fullMsg == "/speak_now"){
+          if(fullMsg == "/micOn"){
             clearLCD();
             setTextLCD(12, "지금 말하세요", 60, 120);
             clearSerialBuffer();
+          }
+          else if(fullMsg == "/micOff"){
+
+          }
+          else if(fullMsg == "/speakerOn"){
+            Serial.println("지금 스피커를 켜겠습니다.");
           }
           else if(fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1)
           {

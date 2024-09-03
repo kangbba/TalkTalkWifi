@@ -14,6 +14,8 @@
 //BLE
 #include "BLE_Controller.h"
 
+const int speakerPin = 5; // 스피커가 연결된 핀 번호
+
 //ADF
 extern "C"
 {
@@ -40,11 +42,66 @@ extern "C"
     static audio_pipeline_handle_t pipeline_in, pipeline_out;
     static audio_board_handle_t  board_handle;
     static int g_hfp_audio_rate = 16000;
+
+    #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
+    #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
+    // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
+    static void IRAM_ATTR gpio_isr_handler(void* arg)
+    {
+        // 로그를 찍거나, 플래그를 설정하는 등의 처리를 여기에 작성
+        ESP_LOGI("GPIO", "마이크 버튼이 눌렸습니다!");
+    }
+
+    // GPIO 초기화 함수
+    void initGPIO()
+    {
+        // GPIO 5번 스피커 설정 (출력, 풀다운)
+        gpio_config_t io_conf_speaker = {
+            .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크
+            .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
+            .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
+            .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
+            .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
+        };
+
+        // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트)
+        gpio_config_t io_conf_mic = {
+            .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크
+            .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
+            .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
+            .intr_type = GPIO_INTR_NEGEDGE               // 인터럽트 타입: 버튼이 눌려 LOW로 변할 때 트리거
+        };
+
+        // GPIO 설정 적용
+        gpio_config(&io_conf_speaker);
+        gpio_config(&io_conf_mic);
+
+        // 인터럽트 서비스 설치
+        gpio_install_isr_service(0);
+
+        // 인터럽트 핸들러 등록 (GPIO_MIC_PIN 핀에서 발생하는 인터럽트를 처리)
+        gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, NULL);
+    }
+    // 스피커 상태 설정 함수
+    void setSpeakerOn(bool b)
+    {
+        if (b)
+        {
+            gpio_set_level(GPIO_SPEAKER_PIN, 1);  // 스피커 핀을 HIGH로 설정
+            ESP_LOGI("GPIO", "스피커 ON (HIGH)");
+        }
+        else
+        {
+            gpio_set_level(GPIO_SPEAKER_PIN, 0);  // 스피커 핀을 LOW로 설정
+            ESP_LOGI("GPIO", "스피커 OFF (LOW)");
+        }
+    }
 }
 //BLE Functions
 //ADF Functions
 extern "C"
-{
+{   
     static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *param);
     static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type);
     static void bt_app_hf_client_audio_close(void);
@@ -148,18 +205,22 @@ void set_max_volume(void){
 static void bt_app_hf_client_audio_open(hfp_data_enc_type_t type)
 {
     ESP_LOGI(TAG, "HFP 오디오 열기 타입 = %d", type);
+    
+    setSpeakerOn(true);
     set_max_volume();
 }
 
 // 이 함수는 HFP 오디오 스트림을 닫습니다. 연결이 끊어졌을 때 호출됩니다.
 static void bt_app_hf_client_audio_close(void)
 {
+    setSpeakerOn(false);
     ESP_LOGI(TAG, "HFP 오디오 닫기");
 }
 
 void setup(){
     Serial.begin(115200);
-    Serial.println("setup testing");
+    Serial.println("setup testing 핀을 출력 모드로 설정");
+    pinMode(speakerPin, OUTPUT); // 핀을 출력 모드로 설정
     initBLE();
     initLCD();
 }
@@ -326,6 +387,8 @@ void app_main(void)
         ESP_LOGI(TAG, "Command executed successfully");
     }
 
+    initGPIO();
+    setSpeakerOn(false);
     setup();
 
     while (1) {
@@ -342,6 +405,7 @@ void app_main(void)
             break;
         }
         loop();
+        vTaskDelay(10 / portTICK_PERIOD_MS);  // 주기 설정: 10ms
     }
 
     ESP_LOGI(TAG, "[ 7 ] 오디오 파이프라인 중지");

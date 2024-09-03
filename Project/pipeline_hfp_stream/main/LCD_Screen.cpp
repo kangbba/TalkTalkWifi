@@ -6,9 +6,9 @@
 #define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
 
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
-Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 1 /* rotation */, false /* IPS */);
-#define LCD_TEXT_COLOR YELLOW
-#define LCD_BACKGROUND_COLOR BLACK
+Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 3 /* rotation */, false /* IPS */);
+#define LCD_TEXT_COLOR PURPLE
+#define LCD_BACKGROUND_COLOR WHITE
 
 void showSpeakNowScreen(){
 

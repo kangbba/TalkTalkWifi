@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define DEVICE_NAME "TalkTalk Wifi (005E)"
+#define DEVICE_NAME "TalkTalk Wifi (005F)"
 
 #ifdef __cplusplus
 }
