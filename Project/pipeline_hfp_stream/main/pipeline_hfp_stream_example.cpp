@@ -46,28 +46,32 @@ extern "C"
     #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
     #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
 
-        
+            
+    // 전역 플래그 변수 선언 (ISR에서 설정, 메인 루프에서 확인)
+    volatile bool requestSendBLEMessage = false;
+
     // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
     static void IRAM_ATTR gpio_isr_handler(void* arg)
     {
-        // ISR-safe 로그 출력
-        ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다!"); // 인터럽트 내에서 안전한 로그 출력
+        // 플래그 설정: BLE 메시지 전송 요청
+        requestSendBLEMessage = true;
+        ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다. BLE 메시지 전송 요청 플래그 설정.");
     }
     // GPIO 초기화 함수
     void initGPIO()
     {
         // GPIO 5번 스피커 설정 (출력, 풀다운)
         gpio_config_t io_conf_speaker = {
-            .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크
+            .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크 (스피커)
             .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
             .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
             .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
             .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
         };
 
-        // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트)
+        // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트 사용)
         gpio_config_t io_conf_mic = {
-            .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크
+            .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크 (마이크)
             .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
             .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
             .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
@@ -75,14 +79,16 @@ extern "C"
         };
 
         // GPIO 설정 적용
-        gpio_config(&io_conf_speaker);
-        gpio_config(&io_conf_mic);
+        gpio_config(&io_conf_speaker); // 스피커 핀 설정
+        gpio_config(&io_conf_mic);     // 마이크 핀 설정
 
-        // 인터럽트 서비스 설치
+        // 인터럽트 서비스 설치 (ISR 서비스 초기화)
         gpio_install_isr_service(0);
 
-        // 인터럽트 핸들러 등록 (GPIO_MIC_PIN 핀에서 발생하는 인터럽트를 처리)
+        // GPIO 17번 마이크 핀의 인터럽트 핸들러 등록
         gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, NULL);
+        
+        ESP_LOGI("GPIO", "GPIO 초기화 완료: 스피커(출력, 풀다운) 및 마이크(입력, 풀업, 인터럽트)");
     }
     // 스피커 상태 설정 함수
     void setSpeakerOn(bool b)
@@ -405,6 +411,13 @@ void app_main(void)
             ESP_LOGW(TAG, "[ * ] 중지 이벤트 수신");
             break;
         }
+        // 플래그 확인 후 BLE 메시지 전송
+        if (requestSendBLEMessage) {
+            requestSendBLEMessage = false;  // 플래그 리셋
+            sendBLEMessage("/askMic");      // BLE 메시지 전송 함수 호출
+            ESP_LOGI("BLE", "BLE 메시지를 전송했습니다.");
+        }
+
         loop();
         vTaskDelay(10 / portTICK_PERIOD_MS);  // 주기 설정: 10ms
     }

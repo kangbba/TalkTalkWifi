@@ -64,6 +64,18 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
     }
 }
 
+// 메시지를 BLE로 전송하는 함수
+void sendBLEMessage(const char* message) {
+    if (deviceConnected) {
+        pTxCharacteristic->setValue(message); // 전송할 메시지 설정
+        pTxCharacteristic->notify();          // Notify를 통해 클라이언트로 전송
+        Serial.print("Sent message to client: ");
+        Serial.println(message);
+    } else {
+        Serial.println("Client not connected. Cannot send message.");
+    }
+}
+
 //BLE Functions
 void initBLE() {
   Serial.println("Initializing BLE...");
