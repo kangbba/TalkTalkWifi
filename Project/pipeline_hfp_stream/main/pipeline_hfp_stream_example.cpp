@@ -45,13 +45,14 @@ extern "C"
 
     #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
     #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
+
+        
     // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
     static void IRAM_ATTR gpio_isr_handler(void* arg)
     {
-        // 로그를 찍거나, 플래그를 설정하는 등의 처리를 여기에 작성
-        ESP_LOGI("GPIO", "마이크 버튼이 눌렸습니다!");
+        // ISR-safe 로그 출력
+        ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다!"); // 인터럽트 내에서 안전한 로그 출력
     }
-
     // GPIO 초기화 함수
     void initGPIO()
     {

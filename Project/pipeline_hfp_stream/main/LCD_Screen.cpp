@@ -7,7 +7,7 @@
 
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
 Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 3 /* rotation */, false /* IPS */);
-#define LCD_TEXT_COLOR PURPLE
+#define LCD_TEXT_COLOR ORANGE //Purple -> 그린색나옴
 #define LCD_BACKGROUND_COLOR WHITE
 
 void showSpeakNowScreen(){
