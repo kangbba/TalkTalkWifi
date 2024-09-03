@@ -26,6 +26,9 @@
 
 BLEServer *pServer;
 BLECharacteristic *pCharacteristic;
+
+const int speakerPin = 5; // 스피커가 연결된 핀 번호
+
 bool deviceConnected = false;
 uint8_t value = 0;
 
@@ -59,6 +62,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         }
         Serial.println();
         Serial.println("*********");
+        digitalWrite(speakerPin, HIGH); // 스피커를 켜는 명령어
 
       }
     }
@@ -125,6 +129,8 @@ void setup() {
   init_beacon();
 
   Serial.println("iBeacon + service defined and advertising!");
+  pinMode(speakerPin, OUTPUT); // 핀을 출력 모드로 설정
+  digitalWrite(speakerPin, LOW); // 초기값을 LOW로 설정하여 스피커를 꺼둠
 }
 
 void loop() {

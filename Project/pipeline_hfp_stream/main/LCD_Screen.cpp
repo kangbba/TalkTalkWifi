@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
 #include "LCD_Screen.h"
-#include "background_img.h" // 생성된 헤더 파일을 포함시킵니다.
 #include "Device_Info.h"
 
 #define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
@@ -93,9 +92,8 @@ void initLCD() {
     if (!gfx->begin()) {
         Serial.println("gfx->begin() failed!");
     }
-    //gfx->fillScreen(LCD_BACKGROUND_COLOR);
-    
-    gfx->draw16bitRGBBitmap(0, 0, background_img, 320, 280);
+   // gfx->draw16bitRGBBitmap(0, 0, background_img, 320, 280);
+    gfx->fillScreen(LCD_BACKGROUND_COLOR);
     gfx->setUTF8Print(true); // enable UTF8 support for the Arduino print() function
 #ifdef GFX_BL
     pinMode(GFX_BL, OUTPUT);

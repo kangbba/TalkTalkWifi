@@ -57,7 +57,7 @@ extern "C"
                 .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX),
                 .sample_rate = rate,
                 .bits_per_sample = bits,
-                .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,
+                .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
                 .communication_format = I2S_COMM_FORMAT_STAND_I2S,
                 .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2 | ESP_INTR_FLAG_IRAM,
                 .dma_buf_count = 3,
@@ -82,6 +82,7 @@ extern "C"
     }
     void app_main(void);
 }
+
 //BLE 
 void loop(){
     loopBLE();  // Run BLE loop
@@ -108,16 +109,16 @@ static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_p
 void set_max_volume(void){
     esp_err_t ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_MIC, 10);
     if (ret == ESP_OK) {
-        printf("게인 볼륨 업데이트 성공2 \n");
+        printf("게인 볼륨 업데이트 성공 \n");
     } else {
         printf("게인 볼륨 업데이트 실패2, Error code: %d\n", ret);
         // 추가적인 오류 처리 로직을 여기에 추가할 수 있습니다.
     }
-    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 10);
+    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 20);
     if (ret == ESP_OK) {
-        printf("게인 볼륨 업데이트 성공2 \n");
+        printf("게인 볼륨 업데이트 성공 \n");
     } else {
-        printf("게인 볼륨 업데이트 실패2, Error code: %d\n", ret);
+        printf("게인 볼륨 업데이트 실패, Error code: %d\n", ret);
         // 추가적인 오류 처리 로직을 여기에 추가할 수 있습니다.
     }
     // // ALC 볼륨 설정
@@ -128,7 +129,7 @@ void set_max_volume(void){
     //     printf("ALC 볼륨 설정 실패, 오류 코드: %d\n", ret);
     // }
     ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
-    int volume = 85;  // 0-100 범위, 여기서는 최대 값 100으로 설정
+    int volume = 45;  // 0-100 범위, 여기서는 최대 값 100으로 설정
     ret = audio_hal_set_volume(board_handle->audio_hal, volume);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
@@ -219,8 +220,6 @@ void app_main(void)
 #else
     esp_bt_gap_set_scan_mode(ESP_BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
 #endif
-
-
 
     ESP_LOGI(TAG, "[ 2 ] 코덱 칩 시작");
     board_handle = audio_board_init();
