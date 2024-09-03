@@ -37,11 +37,8 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
         if (fullMsg.length() > 0) {
           if(fullMsg == "/micOn"){
             clearLCD();
-            setTextLCD(12, "지금 말하세요", 60, 120);
+            drawMicIcon();
             clearSerialBuffer();
-          }
-          else if(fullMsg == "/micOff"){
-
           }
           else if(fullMsg == "/speakerOn"){
             Serial.println("지금 스피커를 켜겠습니다.");
@@ -92,14 +89,17 @@ void initBLE() {
   // Create a BLE Characteristic
   pTxCharacteristic = pService->createCharacteristic(
                     CHARACTERISTIC_UUID_TX,
-                    BLECharacteristic::PROPERTY_NOTIFY
+                    BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
                   ); 
   pTxCharacteristic->addDescriptor(new BLE2902());
   BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
                        CHARACTERISTIC_UUID_RX,
-                      BLECharacteristic::PROPERTY_WRITE
+                      BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
                     );
   pRxCharacteristic->setCallbacks(new MyCallbacks());
+
+
+
   // Start the service
   pService->start();
 

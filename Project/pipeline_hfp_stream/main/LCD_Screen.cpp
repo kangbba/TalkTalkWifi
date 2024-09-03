@@ -2,12 +2,14 @@
 #include <Arduino_GFX_Library.h>
 #include "LCD_Screen.h"
 #include "Device_Info.h"
+#include "background_img.h"
+#include "mic_img.h"
 
 #define GFX_BL DF_GFX_BL // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
 
 Arduino_DataBus *bus = create_default_Arduino_DataBus();
 Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 3 /* rotation */, false /* IPS */);
-#define LCD_TEXT_COLOR LIGHTGREY //Purple -> 그린색나옴 ORANGE -> 파란색나옴
+#define LCD_TEXT_COLOR MAROON //Purple -> 그린색나옴 ORANGE -> 파란색나옴 CYAN -> 빨강나옴 MAROON -> 하늘색 나옴 DARKGREEN -> 연보라
 #define LCD_BACKGROUND_COLOR WHITE
 
 /*
@@ -124,8 +126,8 @@ void initLCD() {
     showOpeningScreen();
 }
 void showOpeningScreen(){
-  //gfx->draw16bitRGBBitmap(0, 0, image_data, 320, 280);
-    setTextLCD(0, DEVICE_NAME, 40, 120);
+    gfx->draw16bitRGBBitmap(60, 70, background_img, 200,  87);
+   // setTextLCD(0, DEVICE_NAME, 40, 120);
 }
 void showBackground(){
 }
@@ -142,3 +144,12 @@ void setTextLCD(int langCode, String str, int16_t x, int16_t y) {
     gfx->println(str);
     Serial.println(str);
 }
+
+void drawMicIcon() {
+    gfx->draw16bitRGBBitmap(60, 70, mic_img, 200,  87);
+}
+
+
+
+
+
