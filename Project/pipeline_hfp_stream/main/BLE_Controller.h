@@ -18,7 +18,7 @@ extern BLEServer *pServer;
 extern BLECharacteristic *pTxCharacteristic;
 extern uint8_t txValue;
 
-void sendBLEMessage(const char* message); // BLE로 메시지 전송 함수 선언
+void sendBLEMessage(const String &data);
 void initBLE();
 void loopBLE();
 void clearSerialBuffer();

@@ -146,6 +146,10 @@ void setTextLCD(int langCode, String str, int16_t x, int16_t y) {
     Serial.println(str);
 }
 
+void loopLCD(){
+    
+}
+
 void drawMicIcon() {
     clearLCD();
     gfx->draw16bitRGBBitmap(76, 70, micicon_img, 150,  80);

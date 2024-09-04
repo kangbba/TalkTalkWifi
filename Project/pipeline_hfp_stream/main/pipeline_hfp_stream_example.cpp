@@ -150,6 +150,7 @@ extern "C"
 //BLE 
 void loop(){
     loopBLE();  // Run BLE loop
+    loopLCD();  // Run BLE loop
 }
 
 //ADF HFP 

@@ -13,5 +13,6 @@ void clearLCD();
 void showOpeningScreen();
 void showSpeakNowScreen();
 void drawMicIcon();
+void loopLCD();
 
 #endif // LCD_SCREEN_H
