@@ -123,6 +123,7 @@ void initGPIO()
                 vTaskDelay(pdMS_TO_TICKS(500)); 
                 if (!resetSent) {
                     sendBLEMessage("/askMicReset");
+                    clearSerialBuffer();
                     resetSent = true; // Reset 메시지 전송 상태 설정
                 }
             }
@@ -236,7 +237,7 @@ void set_max_volume(void){
     //     printf("ALC 볼륨 설정 실패, 오류 코드: %d\n", ret);
     // }
     ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
-    int volume = 45;  // 0-100 범위, 여기서는 최대 값 100으로 설정
+    int volume = 50;  // 0-100 범위, 여기서는 최대 값 100으로 설정
     ret = audio_hal_set_volume(board_handle->audio_hal, volume);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
@@ -438,7 +439,7 @@ void app_main(void)
     }
 
     initGPIO();    
-    xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
+   // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
 
     setSpeakerOn(false);
     setup();

@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#define FIRMWARE_ID "00AE"
-#define FULL_DEVICE_NAME "TalkTalkWIFI [00AE]"
+#define FIRMWARE_ID "00AD"
+#define FULL_DEVICE_NAME "TalkTalkWIFI [00AD]"
 
 #ifdef __cplusplus
 }
