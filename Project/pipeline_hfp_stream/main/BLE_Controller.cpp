@@ -8,6 +8,7 @@ bool oldDeviceConnected = false;
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
+BLECharacteristic *pRxCharacteristic;
 uint8_t txValue = 0;
 
 void MyServerCallbacks::onConnect(BLEServer* pServer) {
@@ -52,7 +53,7 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
                 someMsg = replaceChinesePunctuations(someMsg);
             } 
             clearLCD();
-            setTextLCD(langCode, someMsg, 10, 70);
+            setTextLCD(langCode, someMsg, 20, 70);
             clearSerialBuffer();
           }
         } else {
@@ -61,16 +62,14 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
     }
 }
 
-// 메시지를 BLE로 전송하는 함수
-void sendBLEMessage(const char* message) {
-    if (deviceConnected) {
-        pTxCharacteristic->setValue(message); // 전송할 메시지 설정
-        pTxCharacteristic->notify();          // Notify를 통해 클라이언트로 전송
-        Serial.print("Sent message to client: ");
-        Serial.println(message);
-    } else {
-        Serial.println("Client not connected. Cannot send message.");
-    }
+void sendBLEMessage(const String &data) {
+  Serial.println(data);
+  // 문자열 데이터를 바이트 배열로 변환하여 전송
+  uint8_t* byteArray = (uint8_t*)data.c_str();
+  size_t byteLength = data.length();
+  
+  pTxCharacteristic->setValue(byteArray, byteLength);
+  pTxCharacteristic->notify();
 }
 
 //BLE Functions
@@ -86,16 +85,19 @@ void initBLE() {
   // Create the BLE Service
   BLEService *pService = pServer->createService(SERVICE_UUID);
   Serial.println("BLE Server created");
-  // Create a BLE Characteristic
+
+  //TX
   pTxCharacteristic = pService->createCharacteristic(
-                    CHARACTERISTIC_UUID_TX,
-                    BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
-                  ); 
+                        CHARACTERISTIC_UUID_TX,
+                        BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE
+                      );
   pTxCharacteristic->addDescriptor(new BLE2902());
-  BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
-                       CHARACTERISTIC_UUID_RX,
-                      BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
-                    );
+
+  //RX
+  pRxCharacteristic = pService->createCharacteristic(
+                        CHARACTERISTIC_UUID_RX,
+                        BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE
+                      );
   pRxCharacteristic->setCallbacks(new MyCallbacks());
 
 
@@ -111,8 +113,8 @@ void initBLE() {
 
 void loopBLE() {
     if (deviceConnected) {
-        pTxCharacteristic->setValue(&txValue, 1);
-        pTxCharacteristic->notify();
+        pRxCharacteristic->setValue(&txValue, 1);
+        pRxCharacteristic->notify();
         txValue++;
         vTaskDelay(10 / portTICK_PERIOD_MS); // FreeRTOS delay
     }
