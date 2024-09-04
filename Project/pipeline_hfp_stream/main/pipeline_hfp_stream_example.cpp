@@ -35,8 +35,9 @@ extern "C"
     #include "hfp_stream.h"
     #include "audio_idf_version.h"
     #include "i2s_stream.h"
+    #include <esp_timer.h>  // 타이머 사용을 위한 헤더
 
-    static const char *TAG = DEVICE_NAME;
+    static const char *TAG = FULL_DEVICE_NAME;
 
     static audio_element_handle_t hfp_in_stream, hfp_out_stream, i2s_stream_writer, i2s_stream_reader;
     static audio_pipeline_handle_t pipeline_in, pipeline_out;
@@ -46,17 +47,39 @@ extern "C"
     #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
     #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
 
-            
-    // 전역 플래그 변수 선언 (ISR에서 설정, 메인 루프에서 확인)
-    volatile bool requestSendBLEMessage = false;
+                    
+    static QueueHandle_t gpio_evt_queue = NULL;
+    static volatile bool debounce = false; // 디바운싱 플래그
+    static int64_t last_isr_time = 0;      // 마지막 ISR 호출 시간
+    // 디바운스 시간 (마이크로초 단위)
+    #define DEBOUNCE_TIME_US 500000  // 50ms
 
-    // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
+        // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
     static void IRAM_ATTR gpio_isr_handler(void* arg)
     {
-        // 플래그 설정: BLE 메시지 전송 요청
-        requestSendBLEMessage = true;
-        ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다. BLE 메시지 전송 요청 플래그 설정.");
+        int64_t current_time = esp_timer_get_time();
+        if (debounce || (current_time - last_isr_time) < DEBOUNCE_TIME_US) {
+            return;  // 디바운스 중이거나 너무 빠른 트리거는 무시
+        }
+
+        debounce = true;
+        last_isr_time = current_time;
+        uint32_t gpio_num = (uint32_t)arg;
+
+        // 큐에 GPIO 번호 전달
+        xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
+        ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다. 큐에 이벤트 전송.");
+
+        // 디바운싱 해제 타이머 설정
+        esp_timer_start_once(esp_timer_create_args_t{
+            .callback = [](void*) { debounce = false; },  // 디바운싱 해제 콜백
+            .arg = NULL,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "debounce_timer"
+        }, DEBOUNCE_TIME_US);
     }
+
+    
     // GPIO 초기화 함수
     void initGPIO()
     {
@@ -82,13 +105,26 @@ extern "C"
         gpio_config(&io_conf_speaker); // 스피커 핀 설정
         gpio_config(&io_conf_mic);     // 마이크 핀 설정
 
-        // 인터럽트 서비스 설치 (ISR 서비스 초기화)
-        gpio_install_isr_service(0);
+        // 큐 생성 (최대 10개의 이벤트 저장 가능)
+        gpio_evt_queue = xQueueCreate(1, sizeof(uint32_t));
 
-        // GPIO 17번 마이크 핀의 인터럽트 핸들러 등록
-        gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, NULL);
-        
+        // ISR 서비스 설치 및 핸들러 등록
+        gpio_install_isr_service(0);
+        gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, (void*) GPIO_MIC_PIN);
+
         ESP_LOGI("GPIO", "GPIO 초기화 완료: 스피커(출력, 풀다운) 및 마이크(입력, 풀업, 인터럽트)");
+    }// 별도의 Task에서 큐 이벤트 처리
+    void gpio_task_example(void* arg)
+    {
+        uint32_t io_num;
+        while (true) {
+            // 큐에서 이벤트를 대기하며 수신
+            if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
+                ESP_LOGI("GPIO", "큐에서 GPIO 이벤트 수신: %d", io_num);
+                // BLE 메시지 전송
+                sendBLEMessage("/askMic");
+            }
+        }
     }
     // 스피커 상태 설정 함수
     void setSpeakerOn(bool b)
@@ -272,7 +308,7 @@ void app_main(void)
     }
 
     // Bluetooth 장치 이름을 설정합니다.
-    esp_bt_dev_set_device_name(DEVICE_NAME);
+    esp_bt_dev_set_device_name(FULL_DEVICE_NAME);
     
     // HFP 오디오 스트림 열기 및 닫기 이벤트 콜백을 등록합니다.
     hfp_open_and_close_evt_cb_register(bt_app_hf_client_audio_open, bt_app_hf_client_audio_close);
@@ -395,7 +431,9 @@ void app_main(void)
         ESP_LOGI(TAG, "Command executed successfully");
     }
 
-    initGPIO();
+    initGPIO();    
+    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+
     setSpeakerOn(false);
     setup();
 
@@ -411,12 +449,6 @@ void app_main(void)
             && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && (int) msg.data == AEL_STATUS_STATE_STOPPED) {
             ESP_LOGW(TAG, "[ * ] 중지 이벤트 수신");
             break;
-        }
-        // 플래그 확인 후 BLE 메시지 전송
-        if (requestSendBLEMessage) {
-            requestSendBLEMessage = false;  // 플래그 리셋
-            sendBLEMessage("/askMic");      // BLE 메시지 전송 함수 호출
-            ESP_LOGI("BLE", "BLE 메시지를 전송했습니다.");
         }
 
         loop();

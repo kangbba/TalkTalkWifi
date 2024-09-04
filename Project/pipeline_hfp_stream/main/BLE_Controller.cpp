@@ -37,9 +37,7 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
 
         if (fullMsg.length() > 0) {
           if(fullMsg == "/micOn"){
-            clearLCD();
-            drawMicIcon();
-            clearSerialBuffer();
+            setScreen(SCREEN_MIC);
           }
           else if(fullMsg == "/speakerOn"){
             Serial.println("지금 스피커를 켜겠습니다.");
@@ -52,9 +50,8 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
             if (langCode == 5) {
                 someMsg = replaceChinesePunctuations(someMsg);
             } 
-            clearLCD();
-            setTextLCD(langCode, someMsg, 20, 70);
-            clearSerialBuffer();
+            setContentStr(langCode, someMsg);
+            setScreen(SCREEN_CONTENT);
           }
         } else {
             Serial.println("Invalid input format. It should be in the format 'langcode:someMsg;'");
@@ -63,6 +60,7 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
 }
 
 void sendBLEMessage(const String &data) {
+  Serial.println("실제 sendBLEMessage 발동");
   Serial.println(data);
   // 문자열 데이터를 바이트 배열로 변환하여 전송
   uint8_t* byteArray = (uint8_t*)data.c_str();
@@ -76,7 +74,7 @@ void sendBLEMessage(const String &data) {
 void initBLE() {
   Serial.println("Initializing BLE...");
   // Create the BLE Device
-  BLEDevice::init(DEVICE_NAME);
+  BLEDevice::init(FULL_DEVICE_NAME);
   Serial.println("BLE Device initialized");
   // Create the BLE Server
   pServer = BLEDevice::createServer();
