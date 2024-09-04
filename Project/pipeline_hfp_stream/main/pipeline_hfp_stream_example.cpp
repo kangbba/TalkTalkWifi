@@ -35,7 +35,6 @@ extern "C"
     #include "hfp_stream.h"
     #include "audio_idf_version.h"
     #include "i2s_stream.h"
-    #include <esp_timer.h>  // 타이머 사용을 위한 헤더
 
     static const char *TAG = FULL_DEVICE_NAME;
 
@@ -47,85 +46,92 @@ extern "C"
     #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
     #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
 
-                    
-    static QueueHandle_t gpio_evt_queue = NULL;
-    static volatile bool debounce = false; // 디바운싱 플래그
-    static int64_t last_isr_time = 0;      // 마지막 ISR 호출 시간
-    // 디바운스 시간 (마이크로초 단위)
-    #define DEBOUNCE_TIME_US 500000  // 50ms
+// 큐 핸들러 선언
+static QueueHandle_t gpio_evt_queue = NULL;
+static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not pressed, false: pressed)
 
         // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
     static void IRAM_ATTR gpio_isr_handler(void* arg)
     {
-        int64_t current_time = esp_timer_get_time();
-        if (debounce || (current_time - last_isr_time) < DEBOUNCE_TIME_US) {
-            return;  // 디바운스 중이거나 너무 빠른 트리거는 무시
+        uint32_t gpio_num = (uint32_t)arg;
+        bool currentState = gpio_get_level(GPIO_NUM_17); // 현재 버튼 상태 읽기
+
+        // 버튼이 HIGH -> LOW로 변화하는 순간(눌린 순간)만 큐에 이벤트 전송
+        if (buttonState && !currentState) { // 이전 상태는 HIGH, 현재 상태는 LOW일 때만 실행
+            buttonState = false; // 버튼 상태를 눌림으로 업데이트
+            xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL); // 큐에 이벤트 전송
+            ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다. 큐에 이벤트 전송.");
         }
 
-        debounce = true;
-        last_isr_time = current_time;
-        uint32_t gpio_num = (uint32_t)arg;
-
-        // 큐에 GPIO 번호 전달
-        xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
-        ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다. 큐에 이벤트 전송.");
-
-        // 디바운싱 해제 타이머 설정
-        esp_timer_start_once(esp_timer_create_args_t{
-            .callback = [](void*) { debounce = false; },  // 디바운싱 해제 콜백
-            .arg = NULL,
-            .dispatch_method = ESP_TIMER_TASK,
-            .name = "debounce_timer"
-        }, DEBOUNCE_TIME_US);
+        // 버튼이 다시 올라간 상태로 돌아왔을 때 (LOW -> HIGH), 상태 업데이트
+        if (!buttonState && currentState) {
+            buttonState = true; // 버튼 상태를 놓음으로 업데이트
+            ESP_EARLY_LOGI("GPIO", "마이크 버튼이 놓였습니다.");
+        }
     }
-
     
-    // GPIO 초기화 함수
-    void initGPIO()
-    {
-        // GPIO 5번 스피커 설정 (출력, 풀다운)
-        gpio_config_t io_conf_speaker = {
-            .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크 (스피커)
-            .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
-            .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
-            .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
-            .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
-        };
 
-        // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트 사용)
-        gpio_config_t io_conf_mic = {
-            .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크 (마이크)
-            .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
-            .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
-            .intr_type = GPIO_INTR_NEGEDGE               // 인터럽트 타입: 버튼이 눌려 LOW로 변할 때 트리거
-        };
+// GPIO 초기화 함수
+void initGPIO()
+{
+    // GPIO 5번 스피커 설정 (출력, 풀다운)
+    gpio_config_t io_conf_speaker = {
+        .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크 (스피커)
+        .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
+        .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
+        .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
+    };
 
-        // GPIO 설정 적용
-        gpio_config(&io_conf_speaker); // 스피커 핀 설정
-        gpio_config(&io_conf_mic);     // 마이크 핀 설정
+    // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트 사용)
+    gpio_config_t io_conf_mic = {
+        .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크 (마이크)
+        .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
+        .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
+        .intr_type = GPIO_INTR_ANYEDGE               // 인터럽트 타입: 상승 및 하강 엣지 모두 감지
+    };
 
-        // 큐 생성 (최대 10개의 이벤트 저장 가능)
-        gpio_evt_queue = xQueueCreate(1, sizeof(uint32_t));
+    // GPIO 설정 적용
+    gpio_config(&io_conf_speaker); // 스피커 핀 설정
+    gpio_config(&io_conf_mic);     // 마이크 핀 설정
 
-        // ISR 서비스 설치 및 핸들러 등록
-        gpio_install_isr_service(0);
-        gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, (void*) GPIO_MIC_PIN);
+    // 큐 생성 (최대 1개의 이벤트 저장 가능)
+    gpio_evt_queue = xQueueCreate(1, sizeof(uint32_t));
 
-        ESP_LOGI("GPIO", "GPIO 초기화 완료: 스피커(출력, 풀다운) 및 마이크(입력, 풀업, 인터럽트)");
-    }// 별도의 Task에서 큐 이벤트 처리
-    void gpio_task_example(void* arg)
+    // ISR 서비스 설치 및 핸들러 등록
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, (void*) GPIO_MIC_PIN);
+
+    ESP_LOGI("GPIO", "GPIO 초기화 완료: 스피커(출력, 풀다운) 및 마이크(입력, 풀업, 인터럽트)");
+}
+
+    // 별도의 Task에서 큐 이벤트 처리
+    void gpio_task_btnDown(void* arg)
     {
         uint32_t io_num;
+        bool resetSent = false; // Reset 상태 플래그
+
         while (true) {
             // 큐에서 이벤트를 대기하며 수신
             if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
                 ESP_LOGI("GPIO", "큐에서 GPIO 이벤트 수신: %d", io_num);
                 // BLE 메시지 전송
                 sendBLEMessage("/askMic");
+                
+                // 일정 시간 대기 후 reset 메시지 전송
+                vTaskDelay(pdMS_TO_TICKS(500)); 
+                if (!resetSent) {
+                    sendBLEMessage("/askMicReset");
+                    resetSent = true; // Reset 메시지 전송 상태 설정
+                }
             }
+            // 메시지가 다시 활성화되면 reset 플래그 해제
+            resetSent = false;
         }
     }
+
+
     // 스피커 상태 설정 함수
     void setSpeakerOn(bool b)
     {
@@ -432,7 +438,7 @@ void app_main(void)
     }
 
     initGPIO();    
-    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+    xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
 
     setSpeakerOn(false);
     setup();

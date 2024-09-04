@@ -42,7 +42,7 @@ void setScreen(int screen) {
             changeUTF(-1);
             gfx->setTextColor(RGB565_BLACK); // Set text color
             gfx->setTextSize(1);
-            gfx->setCursor(280, 230);
+            gfx->setCursor(282, 230);
             gfx->print(FIRMWARE_ID);
             break;
         case SCREEN_MIC:
@@ -50,10 +50,11 @@ void setScreen(int screen) {
             changeUTF(-1);
             gfx->setTextColor(RGB565_BLACK); // Set text color
             gfx->setTextSize(1);
-            gfx->setCursor(110, 170);
+            gfx->setCursor(102, 170);
             gfx->println("Recording Now");
             break;
         case SCREEN_CONTENT:
+            changeUTF(curLangCode);
             gfx->setTextSize(2);
             showCurContent();
             break;
@@ -86,12 +87,12 @@ void initLCD() {
 
 // Opening 화면을 보여주는 함수
 void showOpeningScreen() {
-    gfx->draw16bitRGBBitmap(76, 70, background_img, 150, 80);
+    gfx->draw16bitRGBBitmap(82, 76, background_img, 150, 80);
 }
 
 // Mic 화면을 보여주는 함수
 void drawMicIcon() {
-    gfx->draw16bitRGBBitmap(76, 40, micicon_img, 150, 100);
+    gfx->draw16bitRGBBitmap(82, 44, micicon_img, 150, 100);
 }
 
 // Content 화면을 보여주는 함수

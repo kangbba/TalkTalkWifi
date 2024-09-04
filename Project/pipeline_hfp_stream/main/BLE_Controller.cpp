@@ -36,11 +36,11 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
         Serial.print(fullMsg);
 
         if (fullMsg.length() > 0) {
-          if(fullMsg == "/micOn"){
+          if(fullMsg == "/micScreenOn"){
             setScreen(SCREEN_MIC);
           }
-          else if(fullMsg == "/speakerOn"){
-            Serial.println("지금 스피커를 켜겠습니다.");
+          else if(fullMsg == "/mainScreenOn"){
+            setScreen(SCREEN_MAIN);
           }
           else if(fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1)
           {
@@ -68,6 +68,7 @@ void sendBLEMessage(const String &data) {
   
   pTxCharacteristic->setValue(byteArray, byteLength);
   pTxCharacteristic->notify();
+  clearSerialBuffer();
 }
 
 //BLE Functions
@@ -87,7 +88,7 @@ void initBLE() {
   //TX
   pTxCharacteristic = pService->createCharacteristic(
                         CHARACTERISTIC_UUID_TX,
-                        BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE
+                        BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
                       );
   pTxCharacteristic->addDescriptor(new BLE2902());
 
