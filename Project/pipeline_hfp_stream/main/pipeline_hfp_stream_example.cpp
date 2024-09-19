@@ -472,7 +472,7 @@ void app_main(void)
 
     initGPIO();    
    // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
-    setSpeakerOn(true);
+    setSpeakerOn(false);
     // setLcdOn(true);
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
