@@ -46,9 +46,37 @@ extern "C"
     #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
     #define GPIO_BACKLIGHT_PIN GPIO_NUM_22     // 백라이트 핀 
 
-// 큐 핸들러 선언
-static QueueHandle_t gpio_evt_queue = NULL;
-static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not pressed, false: pressed)
+    // 큐 핸들러 선언
+    static QueueHandle_t gpio_evt_queue = NULL;
+    static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not pressed, false: pressed)
+
+
+    // // 스피커 상태 설정 함수
+    // void setLcdOn(bool b)
+    // {
+    //     if (b)
+    //     {
+    //         gpio_set_level(GPIO_BACKLIGHT_PIN, 1);  // LCD 핀을 HIGH로 설정
+    //         ESP_LOGI("GPIO", "LCD ON (HIGH)");
+    //     }
+    //     else
+    //     {
+    //         gpio_set_level(GPIO_BACKLIGHT_PIN, 0);  // LCD 핀을 LOW로 설정
+    //         ESP_LOGI("GPIO", "LCD OFF (LOW)");
+    //     }
+    // }
+
+    // // 일정 시간(sec) 동안 LCD를 켠 후 자동으로 끄는 함수
+    // void setLcdOnDuration(int sec) {
+    //     setLcdOn(true);  // LCD ON
+    //     ESP_LOGI("LCD", "LCD will be on for %d seconds", sec);
+
+    //     // 주어진 시간 동안 대기 (sec * 1000ms)
+    //     vTaskDelay(sec * 1000 / portTICK_PERIOD_MS);
+
+    //     setLcdOn(false);  // LCD OFF
+    //     ESP_LOGI("LCD", "LCD OFF after %d seconds", sec);
+    // }
 
         // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
     static void IRAM_ATTR gpio_isr_handler(void* arg)
@@ -146,21 +174,6 @@ static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not p
     }
 
 
-    // 스피커 상태 설정 함수
-    void setLcdOn(bool b)
-    {
-        if (b)
-        {
-            gpio_set_level(GPIO_BACKLIGHT_PIN, 1);  // LCD 핀을 HIGH로 설정
-            ESP_LOGI("GPIO", "LCD ON (HIGH)");
-        }
-        else
-        {
-            gpio_set_level(GPIO_BACKLIGHT_PIN, 0);  // LCD 핀을 LOW로 설정
-            ESP_LOGI("GPIO", "LCD OFF (LOW)");
-        }
-    }
-
 }
 // 스피커 상태 설정 함수 (ESP)
 void setSpeakerOn(bool b)
@@ -239,16 +252,20 @@ void loop(){
 static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *param) {
     switch (event) {
         case ESP_HF_CLIENT_CONNECTION_STATE_EVT:
-            ESP_LOGI(TAG, "HFP Client connection state changed: %d", param->conn_stat.state);
-            setLcdOn(10);
+            ESP_LOGI(TAG, "HFP Client connection state changed: %d", param->conn_stat.state);  
+            if (param->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_CONNECTED) {
+                ESP_LOGI(TAG, "HFP Client is connected");
+                setScreen(SCREEN_CONNECTED, 10);
+            } else if (param->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_DISCONNECTED) {
+                ESP_LOGI(TAG, "HFP Client is disconnected");
+                setScreen(SCREEN_MAIN, 10);
+            }
             break;
         case ESP_HF_CLIENT_AUDIO_STATE_EVT:
             ESP_LOGI(TAG, "HFP Client audio state changed: %d", param->audio_stat.state);
-            setLcdOn(10);
             break;
         case ESP_HF_CLIENT_BVRA_EVT:
             ESP_LOGI(TAG, "Voice recognition state changed: %d", param->bvra.value);
-            setLcdOn(10);
             break;
         default:
             ESP_LOGI(TAG, "Unhandled HFP event: %d", event);
@@ -367,7 +384,7 @@ void app_main(void)
 
     // HFP 이벤트 핸들러 등록
     ESP_LOGI(TAG, "[ 1 ] HFP 이벤트 핸들러 등록");
-    //esp_hf_client_register_callback(hfp_event_handler);
+  //  esp_hf_client_register_callback(hfp_event_handler);
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0))
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
@@ -483,7 +500,7 @@ void app_main(void)
     initGPIO();    
    // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
     setSpeakerOn(true);
-    setLcdOn(10);
+    // setLcdOn(true);
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 

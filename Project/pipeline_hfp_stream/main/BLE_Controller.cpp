@@ -13,10 +13,12 @@ uint8_t txValue = 0;
 
 void MyServerCallbacks::onConnect(BLEServer* pServer) {
     deviceConnected = true;
+    setScreen(SCREEN_CONNECTED, 10);
 }
 
 void MyServerCallbacks::onDisconnect(BLEServer* pServer) {
     deviceConnected = false;
+    setScreen(SCREEN_MAIN, 10);
 }
 
 void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
@@ -37,10 +39,10 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
 
         if (fullMsg.length() > 0) {
           if(fullMsg == "/micScreenOn"){
-            setScreen(SCREEN_MIC);
+            setScreen(SCREEN_MIC, 20);
           }
           else if(fullMsg == "/mainScreenOn"){
-            setScreen(SCREEN_MAIN);
+            setScreen(SCREEN_MAIN, 20);
           }
           else if(fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1)
           {
@@ -51,7 +53,7 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
                 someMsg = replaceChinesePunctuations(someMsg);
             } 
             setContentStr(langCode, someMsg);
-            setScreen(SCREEN_CONTENT);
+            setScreen(SCREEN_CONTENT, 20);
           }
         } else {
             Serial.println("Invalid input format. It should be in the format 'langcode:someMsg;'");

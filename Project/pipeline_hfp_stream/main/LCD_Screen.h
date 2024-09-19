@@ -11,6 +11,7 @@ extern Arduino_GFX *gfx;
 extern const int SCREEN_MAIN;
 extern const int SCREEN_CONTENT;
 extern const int SCREEN_MIC;
+extern const int SCREEN_CONNECTED;
 
 // 현재 화면 타입 변수 선언
 extern int currentScreen;
@@ -22,7 +23,7 @@ extern int recordingIndex;                 // 현재 출력할 문자 인덱스
 extern const int RECORDING_DELAY_MS;       // 각 문자가 출력될 주기 (밀리초)
 
 // 함수 선언부
-void setScreen(int screen);                 // 화면 전환을 관리하는 함수
+void setScreen(int screen, int durationSec);                 // 화면 전환을 관리하는 함수
 void setContentStr(int langCode, String contentStr); // 현재 콘텐츠 설정 함수
 void initLCD();                             // LCD 초기화 함수
 void clearLCD();                            // LCD 화면을 지우는 함수
