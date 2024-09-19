@@ -162,31 +162,31 @@ static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not p
     }
 
 }
-    // // 스피커 상태 설정 함수
-    // void setSpeakerOn(bool b)
-    // {
-    //     if (b)
-    //     {
-    //         gpio_set_level(GPIO_SPEAKER_PIN, 1);  // 스피커 핀을 HIGH로 설정
-    //         ESP_LOGI("GPIO", "스피커 ON (HIGH)");
-    //     }
-    //     else
-    //     {
-    //         gpio_set_level(GPIO_SPEAKER_PIN, 0);  // 스피커 핀을 LOW로 설정
-    //         ESP_LOGI("GPIO", "스피커 OFF (LOW)");
-    //     }
-    // }
-    // 스피커 상태 설정 함수s
-void setSpeakerOn(bool b) {
-
-    if (b) {
-        digitalWrite(speakerPin, HIGH);  // 스피커 핀을 HIGH로 설정
-        Serial.println("스피커 ON (HIGH)");
-    } else {
-        digitalWrite(speakerPin, LOW);  // 스피커 핀을 LOW로 설정
-        Serial.println("스피커 OFF (LOW)");
+// 스피커 상태 설정 함수 (ESP)
+void setSpeakerOn(bool b)
+{
+    if (b)
+    {
+        gpio_set_level(GPIO_SPEAKER_PIN, 1);  // 스피커 핀을 HIGH로 설정
+        ESP_LOGI("GPIO", "스피커 ON (HIGH)");
+    }
+    else
+    {
+        gpio_set_level(GPIO_SPEAKER_PIN, 0);  // 스피커 핀을 LOW로 설정
+        ESP_LOGI("GPIO", "스피커 OFF (LOW)");
     }
 }
+//     // 스피커 상태 설정 함수 (아두이노)
+// void setSpeakerOn(bool b) {
+
+//     if (b) {
+//         digitalWrite(speakerPin, HIGH);  // 스피커 핀을 HIGH로 설정
+//         Serial.println("스피커 ON (HIGH)");
+//     } else {
+//         digitalWrite(speakerPin, LOW);  // 스피커 핀을 LOW로 설정
+//         Serial.println("스피커 OFF (LOW)");
+//     }
+// }
 //BLE Functions
 //ADF Functions
 extern "C"
@@ -315,7 +315,7 @@ void setup(){
     initBLE();
     initLCD();
     Serial.println("setup testing 핀을 출력 모드로 설정");
-    pinMode(speakerPin, OUTPUT); // 핀을 출력 모드로 설정
+    // pinMode(speakerPin, PULLDOWN); // 핀을 출력 모드로 설정
 }
 void app_main(void)
 {
@@ -482,7 +482,7 @@ void app_main(void)
 
     initGPIO();    
    // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
-    setSpeakerOn(false);
+    setSpeakerOn(true);
     setLcdOn(10);
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
