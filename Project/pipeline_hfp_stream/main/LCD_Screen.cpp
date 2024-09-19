@@ -51,7 +51,7 @@ void setScreen(int screen) {
             gfx->setTextColor(RGB565_BLACK); // Set text color
             gfx->setTextSize(1);
             gfx->setCursor(102, 170);
-            gfx->println("Recording Now");
+            gfx->println("SPEAKING NOW");
             break;
         case SCREEN_CONTENT:
             changeUTF(curLangCode);

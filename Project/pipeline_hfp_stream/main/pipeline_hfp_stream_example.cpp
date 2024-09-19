@@ -13,7 +13,6 @@
 
 //BLE
 #include "BLE_Controller.h"
-
 const int speakerPin = 5; // 스피커가 연결된 핀 번호
 
 //ADF
@@ -45,6 +44,7 @@ extern "C"
 
     #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
     #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
+    #define GPIO_BACKLIGHT_PIN GPIO_NUM_22     // 백라이트 핀 
 
 // 큐 핸들러 선언
 static QueueHandle_t gpio_evt_queue = NULL;
@@ -71,40 +71,53 @@ static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not p
     }
     
 
-// GPIO 초기화 함수
-void initGPIO()
-{
-    // GPIO 5번 스피커 설정 (출력, 풀다운)
-    gpio_config_t io_conf_speaker = {
-        .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크 (스피커)
-        .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
-        .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
-        .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
-    };
+    // GPIO 초기화 함수
+    void initGPIO()
+    {
+        // GPIO 5번 스피커 설정 (출력, 풀다운)
+        gpio_config_t io_conf_speaker = {
+            .pin_bit_mask = (1ULL << GPIO_SPEAKER_PIN),  // 설정할 GPIO 핀 비트 마스크 (스피커)
+            .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
+            .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
+            .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
+            .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
+        };
+        // GPIO 설정 적용
+        gpio_config(&io_conf_speaker); // 스피커 핀 설정
+        ESP_LOGI("GPIO", "GPIO 초기화 완료: 스피커(출력, 풀다운)");
 
-    // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트 사용)
-    gpio_config_t io_conf_mic = {
-        .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크 (마이크)
-        .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
-        .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
-        .intr_type = GPIO_INTR_ANYEDGE               // 인터럽트 타입: 상승 및 하강 엣지 모두 감지
-    };
 
-    // GPIO 설정 적용
-    gpio_config(&io_conf_speaker); // 스피커 핀 설정
-    gpio_config(&io_conf_mic);     // 마이크 핀 설정
+        // GPIO 22번 백라이트 설정 (출력, 풀다운)
+        gpio_config_t io_conf_backlight = {
+            .pin_bit_mask = (1ULL << GPIO_BACKLIGHT_PIN),  // 설정할 GPIO 핀 비트 마스크 (스피커)
+            .mode = GPIO_MODE_OUTPUT,                    // GPIO 모드: 출력
+            .pull_up_en = GPIO_PULLUP_DISABLE,           // 풀업 비활성화
+            .pull_down_en = GPIO_PULLDOWN_ENABLE,        // 풀다운 활성화
+            .intr_type = GPIO_INTR_DISABLE               // 인터럽트 비활성화
+        };
+        // GPIO 설정 적용
+        gpio_config(&io_conf_backlight); // 스피커 핀 설정
+        ESP_LOGI("GPIO", "GPIO 초기화 완료: 백라이트(출력, 풀다운)");
+        
+        // // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트 사용)
+        // gpio_config_t io_conf_mic = {
+        //     .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크 (마이크)
+        //     .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
+        //     .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
+        //     .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
+        //     .intr_type = GPIO_INTR_ANYEDGE               // 인터럽트 타입: 상승 및 하강 엣지 모두 감지
+        // };
+        // gpio_config(&io_conf_mic);     // 마이크 핀 설정
 
-    // 큐 생성 (최대 1개의 이벤트 저장 가능)
-    gpio_evt_queue = xQueueCreate(1, sizeof(uint32_t));
+        // // 큐 생성 (최대 1개의 이벤트 저장 가능)
+        // gpio_evt_queue = xQueueCreate(1, sizeof(uint32_t));
 
-    // ISR 서비스 설치 및 핸들러 등록
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, (void*) GPIO_MIC_PIN);
+        // // ISR 서비스 설치 및 핸들러 등록
+        // gpio_install_isr_service(0);
+        // gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, (void*) GPIO_MIC_PIN);
 
-    ESP_LOGI("GPIO", "GPIO 초기화 완료: 스피커(출력, 풀다운) 및 마이크(입력, 풀업, 인터럽트)");
-}
+        // ESP_LOGI("GPIO", "GPIO 초기화 완료: 마이크(입력, 풀업, 인터럽트)");
+    }
 
     // 별도의 Task에서 큐 이벤트 처리
     void gpio_task_btnDown(void* arg)
@@ -134,18 +147,44 @@ void initGPIO()
 
 
     // 스피커 상태 설정 함수
-    void setSpeakerOn(bool b)
+    void setLcdOn(bool b)
     {
         if (b)
         {
-            gpio_set_level(GPIO_SPEAKER_PIN, 1);  // 스피커 핀을 HIGH로 설정
-            ESP_LOGI("GPIO", "스피커 ON (HIGH)");
+            gpio_set_level(GPIO_BACKLIGHT_PIN, 1);  // LCD 핀을 HIGH로 설정
+            ESP_LOGI("GPIO", "LCD ON (HIGH)");
         }
         else
         {
-            gpio_set_level(GPIO_SPEAKER_PIN, 0);  // 스피커 핀을 LOW로 설정
-            ESP_LOGI("GPIO", "스피커 OFF (LOW)");
+            gpio_set_level(GPIO_BACKLIGHT_PIN, 0);  // LCD 핀을 LOW로 설정
+            ESP_LOGI("GPIO", "LCD OFF (LOW)");
         }
+    }
+
+}
+    // // 스피커 상태 설정 함수
+    // void setSpeakerOn(bool b)
+    // {
+    //     if (b)
+    //     {
+    //         gpio_set_level(GPIO_SPEAKER_PIN, 1);  // 스피커 핀을 HIGH로 설정
+    //         ESP_LOGI("GPIO", "스피커 ON (HIGH)");
+    //     }
+    //     else
+    //     {
+    //         gpio_set_level(GPIO_SPEAKER_PIN, 0);  // 스피커 핀을 LOW로 설정
+    //         ESP_LOGI("GPIO", "스피커 OFF (LOW)");
+    //     }
+    // }
+    // 스피커 상태 설정 함수s
+void setSpeakerOn(bool b) {
+
+    if (b) {
+        digitalWrite(speakerPin, HIGH);  // 스피커 핀을 HIGH로 설정
+        Serial.println("스피커 ON (HIGH)");
+    } else {
+        digitalWrite(speakerPin, LOW);  // 스피커 핀을 LOW로 설정
+        Serial.println("스피커 OFF (LOW)");
     }
 }
 //BLE Functions
@@ -201,12 +240,15 @@ static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_p
     switch (event) {
         case ESP_HF_CLIENT_CONNECTION_STATE_EVT:
             ESP_LOGI(TAG, "HFP Client connection state changed: %d", param->conn_stat.state);
+            setLcdOn(10);
             break;
         case ESP_HF_CLIENT_AUDIO_STATE_EVT:
             ESP_LOGI(TAG, "HFP Client audio state changed: %d", param->audio_stat.state);
+            setLcdOn(10);
             break;
         case ESP_HF_CLIENT_BVRA_EVT:
             ESP_LOGI(TAG, "Voice recognition state changed: %d", param->bvra.value);
+            setLcdOn(10);
             break;
         default:
             ESP_LOGI(TAG, "Unhandled HFP event: %d", event);
@@ -215,14 +257,14 @@ static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_p
 }
 
 void set_max_volume(void){
-    esp_err_t ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_MIC, 10);
+    esp_err_t ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_MIC, 30);
     if (ret == ESP_OK) {
         printf("게인 볼륨 업데이트 성공 \n");
     } else {
         printf("게인 볼륨 업데이트 실패2, Error code: %d\n", ret);
         // 추가적인 오류 처리 로직을 여기에 추가할 수 있습니다.
     }
-    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 20);
+    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 30);
     if (ret == ESP_OK) {
         printf("게인 볼륨 업데이트 성공 \n");
     } else {
@@ -237,7 +279,7 @@ void set_max_volume(void){
     //     printf("ALC 볼륨 설정 실패, 오류 코드: %d\n", ret);
     // }
     ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
-    int volume = 50;  // 0-100 범위, 여기서는 최대 값 100으로 설정
+    int volume = 70;  // 0-100 범위, 여기서는 최대 값 100으로 설정
     ret = audio_hal_set_volume(board_handle->audio_hal, volume);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
@@ -270,10 +312,10 @@ static void bt_app_hf_client_audio_close(void)
 
 void setup(){
     Serial.begin(115200);
-    Serial.println("setup testing 핀을 출력 모드로 설정");
-    pinMode(speakerPin, OUTPUT); // 핀을 출력 모드로 설정
     initBLE();
     initLCD();
+    Serial.println("setup testing 핀을 출력 모드로 설정");
+    pinMode(speakerPin, OUTPUT); // 핀을 출력 모드로 설정
 }
 void app_main(void)
 {
@@ -440,8 +482,11 @@ void app_main(void)
 
     initGPIO();    
    // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
-
     setSpeakerOn(false);
+    setLcdOn(10);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
     setup();
 
     while (1) {
@@ -459,7 +504,6 @@ void app_main(void)
         }
 
         loop();
-        vTaskDelay(10 / portTICK_PERIOD_MS);  // 주기 설정: 10ms
     }
 
     ESP_LOGI(TAG, "[ 7 ] 오디오 파이프라인 중지");
