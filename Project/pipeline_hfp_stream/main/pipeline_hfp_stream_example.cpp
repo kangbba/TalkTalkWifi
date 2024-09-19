@@ -51,33 +51,6 @@ extern "C"
     static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not pressed, false: pressed)
 
 
-    // // 스피커 상태 설정 함수
-    // void setLcdOn(bool b)
-    // {
-    //     if (b)
-    //     {
-    //         gpio_set_level(GPIO_BACKLIGHT_PIN, 1);  // LCD 핀을 HIGH로 설정
-    //         ESP_LOGI("GPIO", "LCD ON (HIGH)");
-    //     }
-    //     else
-    //     {
-    //         gpio_set_level(GPIO_BACKLIGHT_PIN, 0);  // LCD 핀을 LOW로 설정
-    //         ESP_LOGI("GPIO", "LCD OFF (LOW)");
-    //     }
-    // }
-
-    // // 일정 시간(sec) 동안 LCD를 켠 후 자동으로 끄는 함수
-    // void setLcdOnDuration(int sec) {
-    //     setLcdOn(true);  // LCD ON
-    //     ESP_LOGI("LCD", "LCD will be on for %d seconds", sec);
-
-    //     // 주어진 시간 동안 대기 (sec * 1000ms)
-    //     vTaskDelay(sec * 1000 / portTICK_PERIOD_MS);
-
-    //     setLcdOn(false);  // LCD OFF
-    //     ESP_LOGI("LCD", "LCD OFF after %d seconds", sec);
-    // }
-
         // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
     static void IRAM_ATTR gpio_isr_handler(void* arg)
     {
