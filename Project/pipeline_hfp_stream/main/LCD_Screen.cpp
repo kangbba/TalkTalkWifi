@@ -13,6 +13,7 @@ Arduino_GFX *gfx = new Arduino_ILI9341(bus, DF_GFX_RST, 3 /* rotation */, false 
 #define LCD_TEXT_COLOR MAROON // Purple -> 그린색나옴 ORANGE -> 파란색나옴 CYAN -> 빨강나옴 MAROON -> 하늘색 나옴 DARKGREEN -> 연보라
 #define LCD_BACKGROUND_COLOR WHITE
 
+#define LCD_SLEEP_ENABLED false
 int curLangCode = 0;
 String curContentStr = "";
 
@@ -48,8 +49,11 @@ void setLcdOn(bool b) {
 }
 
 /// FreeRTOS 태스크 함수
-void lcdTask(void *param) {
+void lcdTimerTask(void *param) {
     // 포인터를 통해 전달된 durationSec 값을 가져옴
+    if(!LCD_SLEEP_ENABLED){
+        return;
+    }
     int durationSec = *((int *)param);
     int previousTaskIndex = taskIndex;
 
@@ -115,20 +119,24 @@ void setScreen(int screen, int durationSec) {
             clearLCD(); // 기본 클리어 화면
             break;
     }
-    // taskIndex 증가
-    taskIndex++;
-    int *durationSecPtr = (int *)malloc(sizeof(int));
-    *durationSecPtr = durationSec;
-    // 새로운 태스크 생성 (비동기적으로 실행)
-    xTaskCreatePinnedToCore(
-        lcdTask,              // 실행할 태스크 함수
-        "LCD Task",           // 태스크 이름
-        2048,                 // 스택 크기 (바이트 단위)
-        durationSecPtr,       // 전달할 인자 (동적 메모리로 할당된 인자)
-        1,                    // 우선순위
-        NULL,                 // 태스크 핸들 (필요하지 않음)
-        1                     // 실행할 코어 (ESP32는 듀얼 코어, 0 또는 1)
-    );
+
+    if(LCD_SLEEP_ENABLED){
+        // taskIndex 증가
+        taskIndex++;
+        int *durationSecPtr = (int *)malloc(sizeof(int));
+        *durationSecPtr = durationSec;
+        // 새로운 태스크 생성 (비동기적으로 실행)
+        xTaskCreatePinnedToCore(
+            lcdTimerTask,              // 실행할 태스크 함수
+            "LCD Task",           // 태스크 이름
+            2048,                 // 스택 크기 (바이트 단위)
+            durationSecPtr,       // 전달할 인자 (동적 메모리로 할당된 인자)
+            1,                    // 우선순위
+            NULL,                 // 태스크 핸들 (필요하지 않음)
+            1                     // 실행할 코어 (ESP32는 듀얼 코어, 0 또는 1)
+        );
+
+    }
 
 }
 
@@ -151,6 +159,7 @@ void initLCD() {
     digitalWrite(GFX_BL, HIGH);
 #endif
     clearLCD();
+    setLcdOn(true);
     setScreen(SCREEN_MAIN, 10); // 시작 시 기본 화면을 main으로 설정
     // LCD를 5초 동안 켰다가 자동으로 끄기
 }

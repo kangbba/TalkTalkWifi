@@ -1,11 +1,10 @@
 #include "Arduino.h"
 
 #include "Device_Info.h"
+#include <LCD_Screen.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-//LCD
-#include <LCD_Screen.h>
 
 //BLACK -> 화이트
 //WHITE -> 파랑
@@ -162,18 +161,6 @@ void setSpeakerOn(bool b)
         ESP_LOGI("GPIO", "스피커 OFF (LOW)");
     }
 }
-//     // 스피커 상태 설정 함수 (아두이노)
-// void setSpeakerOn(bool b) {
-
-//     if (b) {
-//         digitalWrite(speakerPin, HIGH);  // 스피커 핀을 HIGH로 설정
-//         Serial.println("스피커 ON (HIGH)");
-//     } else {
-//         digitalWrite(speakerPin, LOW);  // 스피커 핀을 LOW로 설정
-//         Serial.println("스피커 OFF (LOW)");
-//     }
-// }
-//BLE Functions
 //ADF Functions
 extern "C"
 {   
@@ -254,7 +241,7 @@ void set_max_volume(void){
         printf("게인 볼륨 업데이트 실패2, Error code: %d\n", ret);
         // 추가적인 오류 처리 로직을 여기에 추가할 수 있습니다.
     }
-    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 15);
+    ret = esp_hf_client_volume_update(ESP_HF_VOLUME_CONTROL_TARGET_SPK, 30);
     if (ret == ESP_OK) {
         printf("게인 볼륨 업데이트 성공 \n");
     } else {
@@ -269,7 +256,7 @@ void set_max_volume(void){
     //     printf("ALC 볼륨 설정 실패, 오류 코드: %d\n", ret);
     // }
     ESP_LOGI(TAG, "[ 2.1 ] audio hal 볼륨조절");
-    int volume = 50;  // 0-100 범위, 여기서는 최대 값 100으로 설정
+    int volume = 85;  // 0-100 범위, 여기서는 최대 값 100으로 설정
     ret = audio_hal_set_volume(board_handle->audio_hal, volume);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "볼륨 설정 실패: %d", ret);
@@ -472,8 +459,9 @@ void app_main(void)
 
     initGPIO();    
    // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
+
+   //스피커 조절
     setSpeakerOn(false);
-    // setLcdOn(true);
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
