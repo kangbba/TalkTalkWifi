@@ -12,7 +12,6 @@
 
 //BLE
 #include "BLE_Controller.h"
-const int speakerPin = 5; // 스피커가 연결된 핀 번호
 
 //ADF
 extern "C"
@@ -42,34 +41,11 @@ extern "C"
     static int g_hfp_audio_rate = 16000;
 
     #define GPIO_SPEAKER_PIN GPIO_NUM_5  // 스피커 핀 (출력, 풀다운)
-    #define GPIO_MIC_PIN GPIO_NUM_17     // 마이크 핀 (입력, 풀업)
+    #define GPIO_MIC_BUTTON_PIN GPIO_NUM_17 // 마이크 버튼 핀
     #define GPIO_BACKLIGHT_PIN GPIO_NUM_22     // 백라이트 핀 
-
-    // 큐 핸들러 선언
-    static QueueHandle_t gpio_evt_queue = NULL;
-    static volatile bool buttonState = true; // 버튼의 초기 상태 (true: not pressed, false: pressed)
-
-
-        // 인터럽트 서비스 핸들러 (버튼 눌림 감지 시 호출)
-    static void IRAM_ATTR gpio_isr_handler(void* arg)
-    {
-        uint32_t gpio_num = (uint32_t)arg;
-        bool currentState = gpio_get_level(GPIO_NUM_17); // 현재 버튼 상태 읽기
-
-        // 버튼이 HIGH -> LOW로 변화하는 순간(눌린 순간)만 큐에 이벤트 전송
-        if (buttonState && !currentState) { // 이전 상태는 HIGH, 현재 상태는 LOW일 때만 실행
-            buttonState = false; // 버튼 상태를 눌림으로 업데이트
-            xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL); // 큐에 이벤트 전송
-            ESP_EARLY_LOGI("GPIO", "마이크 버튼이 눌렸습니다. 큐에 이벤트 전송.");
-        }
-
-        // 버튼이 다시 올라간 상태로 돌아왔을 때 (LOW -> HIGH), 상태 업데이트
-        if (!buttonState && currentState) {
-            buttonState = true; // 버튼 상태를 놓음으로 업데이트
-            ESP_EARLY_LOGI("GPIO", "마이크 버튼이 놓였습니다.");
-        }
-    }
-    
+    // 태스크 핸들러
+    TaskHandle_t xMicButtonTaskHandle = NULL;
+    TaskHandle_t xLoopTaskHandle = NULL;
 
     // GPIO 초기화 함수
     void initGPIO()
@@ -98,50 +74,86 @@ extern "C"
         // GPIO 설정 적용
         gpio_config(&io_conf_backlight); // 스피커 핀 설정
         ESP_LOGI("GPIO", "GPIO 초기화 완료: 백라이트(출력, 풀다운)");
+
+
+        // GPIO 17번 마이크 버튼 설정 (입력)
+        gpio_config_t io_conf_mic_button = {
+            .pin_bit_mask = (1ULL << GPIO_MIC_BUTTON_PIN), // 마이크 버튼 핀 비트 마스크
+            .mode = GPIO_MODE_INPUT,                       // GPIO 모드: 입력
+            .pull_up_en = GPIO_PULLUP_DISABLE,             // 풀업 저항은 이미 하드웨어에 있음
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,         // 풀다운 비활성화
+            .intr_type = GPIO_INTR_DISABLE                 // 인터럽트 비활성화
+        };
+        gpio_config(&io_conf_mic_button); // 마이크 버튼 핀 설정
+        ESP_LOGI(TAG, "GPIO 초기화 완료: 마이크 버튼(입력)");
         
-        // // GPIO 17번 마이크 설정 (입력, 풀업, 인터럽트 사용)
-        // gpio_config_t io_conf_mic = {
-        //     .pin_bit_mask = (1ULL << GPIO_MIC_PIN),      // 설정할 GPIO 핀 비트 마스크 (마이크)
-        //     .mode = GPIO_MODE_INPUT,                     // GPIO 모드: 입력
-        //     .pull_up_en = GPIO_PULLUP_ENABLE,            // 풀업 활성화
-        //     .pull_down_en = GPIO_PULLDOWN_DISABLE,       // 풀다운 비활성화
-        //     .intr_type = GPIO_INTR_ANYEDGE               // 인터럽트 타입: 상승 및 하강 엣지 모두 감지
-        // };
-        // gpio_config(&io_conf_mic);     // 마이크 핀 설정
+    }
+    void loopTask(void *pvParameters) {
+        while (1) {
+            loopBLE();  // BLE 관련 루프 실행
+            loopLCD();  // LCD 관련 루프 실행
 
-        // // 큐 생성 (최대 1개의 이벤트 저장 가능)
-        // gpio_evt_queue = xQueueCreate(1, sizeof(uint32_t));
+            vTaskDelay(pdMS_TO_TICKS(100));  // 1초 대기 (1000ms)
+        }
+    }
+    // 마이크 버튼 상태를 감시하는 Task
+    void micButtonMonitorTask(void *arg)
+    {
+        int last_button_state = 1; // 초기 상태는 버튼이 눌리지 않은 상태로 가정 (1)
+        
+        while (1) {
+            int current_button_state = gpio_get_level(GPIO_MIC_BUTTON_PIN);
+            
+            if (current_button_state == 0 && last_button_state == 1) {
+                // 버튼이 눌려서 Low로 바뀌는 순간 (상태 변화 감지)
+                ESP_LOGI(TAG, "마이크 버튼 눌림 - 쿠폰 지급");
+                sendBLEMessage("/askMic");
+            }
+            
+            // 버튼이 다시 High 상태로 돌아오면 상태를 초기화하여 다시 감지 가능하게 함
+            if (current_button_state == 1 && last_button_state == 0) {
+                ESP_LOGI(TAG, "마이크 버튼이 다시 올라감");
+            }
 
-        // // ISR 서비스 설치 및 핸들러 등록
-        // gpio_install_isr_service(0);
-        // gpio_isr_handler_add(GPIO_MIC_PIN, gpio_isr_handler, (void*) GPIO_MIC_PIN);
+            // 이전 버튼 상태 업데이트
+            last_button_state = current_button_state;
 
-        // ESP_LOGI("GPIO", "GPIO 초기화 완료: 마이크(입력, 풀업, 인터럽트)");
+            vTaskDelay(100 / portTICK_PERIOD_MS);  // 100ms 대기
+        }
     }
 
-    // 별도의 Task에서 큐 이벤트 처리
-    void gpio_task_btnDown(void* arg)
+    // 마이크 버튼 감시 Task 시작
+    void startMicButtonMonitorTask()
     {
-        uint32_t io_num;
-        bool resetSent = false; // Reset 상태 플래그
+        if (xMicButtonTaskHandle == NULL) {
+            xTaskCreate(micButtonMonitorTask, "micButtonMonitorTask", 2048, NULL, 5, &xMicButtonTaskHandle);
+            ESP_LOGI(TAG, "마이크 버튼 감시 Task 시작");
+        }
+    }
 
-        while (true) {
-            // 큐에서 이벤트를 대기하며 수신
-            if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
-                ESP_LOGI("GPIO", "큐에서 GPIO 이벤트 수신: %d", io_num);
-                // BLE 메시지 전송
-                sendBLEMessage("/askMic");
-                
-                // 일정 시간 대기 후 reset 메시지 전송
-                vTaskDelay(pdMS_TO_TICKS(500)); 
-                if (!resetSent) {
-                    sendBLEMessage("/askMicReset");
-                    clearSerialBuffer();
-                    resetSent = true; // Reset 메시지 전송 상태 설정
-                }
-            }
-            // 메시지가 다시 활성화되면 reset 플래그 해제
-            resetSent = false;
+    // 마이크 버튼 감시 Task 종료
+    void stopMicButtonMonitorTask()
+    {
+        if (xMicButtonTaskHandle != NULL) {
+            vTaskDelete(xMicButtonTaskHandle);
+            xMicButtonTaskHandle = NULL;
+            ESP_LOGI(TAG, "마이크 버튼 감시 Task 종료");
+        }
+    }
+    // 루프 태스크를 시작하는 함수
+    void startLoopTask() {
+        if (xLoopTaskHandle == NULL) {
+            xTaskCreate(loopTask, "LoopTask", 2048, NULL, 5, &xLoopTaskHandle);
+            ESP_LOGI(TAG, "루프 태스크 시작됨");
+        }
+    }
+
+    // 루프 태스크를 중지하는 함수
+    void stopLoopTask() {
+        if (xLoopTaskHandle != NULL) {
+            vTaskDelete(xLoopTaskHandle);
+            xLoopTaskHandle = NULL;
+            ESP_LOGI(TAG, "루프 태스크 중지됨");
         }
     }
 
@@ -202,11 +214,13 @@ extern "C"
     void app_main(void);
 }
 
-//BLE 
-void loop(){
-    loopBLE();  // Run BLE loop
-    loopLCD();  // Run BLE loop
-}
+// //BLE 
+// void loop(){
+//     loopBLE();  // Run BLE loop
+//     loopLCD();  // Run BLE loop
+//     ESP_LOGI(TAG, "[ 1 ] loop TEST");
+// }
+// 실제 루프 태스크 (while 문을 사용하는 태스크)
 
 //ADF HFP 
 static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *param) {
@@ -218,7 +232,7 @@ static void hfp_event_handler(esp_hf_client_cb_event_t event, esp_hf_client_cb_p
                 setScreen(SCREEN_CONNECTED, 10);
             } else if (param->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_DISCONNECTED) {
                 ESP_LOGI(TAG, "HFP Client is disconnected");
-                setScreen(SCREEN_MAIN, 10);
+                setScreen(SCREEN_DISCONNECTED, 10);
             }
             break;
         case ESP_HF_CLIENT_AUDIO_STATE_EVT:
@@ -291,8 +305,7 @@ void setup(){
     Serial.begin(115200);
     initBLE();
     initLCD();
-    Serial.println("setup testing 핀을 출력 모드로 설정");
-    // pinMode(speakerPin, PULLDOWN); // 핀을 출력 모드로 설정
+    Serial.println("GPIO 초기화 완료: 마이크(입력, 풀업 사용)");
 }
 void app_main(void)
 {
@@ -309,6 +322,7 @@ void app_main(void)
     esp_log_level_set(TAG, ESP_LOG_DEBUG);
 
     ESP_LOGI(TAG, "[ 1 ] Bluetooth 초기화");
+    // ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
     // BLE 메모리를 해제합니다.
    // ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
 
@@ -458,14 +472,15 @@ void app_main(void)
     }
 
     initGPIO();    
-   // xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
+  //  xTaskCreate(gpio_task_btnDown, "gpio_task_btnDown", 2048, NULL, 10, NULL); // 이벤트 처리 태스크 생성
 
    //스피커 조절
     setSpeakerOn(false);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    startMicButtonMonitorTask();
+    startLoopTask();
 
     setup();
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     while (1) {
         audio_event_iface_msg_t msg;
@@ -480,8 +495,7 @@ void app_main(void)
             ESP_LOGW(TAG, "[ * ] 중지 이벤트 수신");
             break;
         }
-
-        loop();
+        vTaskDelay(10 / portTICK_PERIOD_MS);  // 10ms 대기
     }
 
     ESP_LOGI(TAG, "[ 7 ] 오디오 파이프라인 중지");
@@ -516,4 +530,8 @@ void app_main(void)
     audio_element_deinit(i2s_stream_reader);
     audio_element_deinit(hfp_out_stream);
     esp_periph_set_destroy(set);
+
+    // 내 함수 해제
+    stopLoopTask();
+    stopMicButtonMonitorTask();
 }

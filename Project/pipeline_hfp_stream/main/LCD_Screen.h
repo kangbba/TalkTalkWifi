@@ -12,6 +12,7 @@ extern const int SCREEN_MAIN;
 extern const int SCREEN_CONTENT;
 extern const int SCREEN_MIC;
 extern const int SCREEN_CONNECTED;
+extern const int SCREEN_DISCONNECTED;
 
 // 현재 화면 타입 변수 선언
 extern int currentScreen;

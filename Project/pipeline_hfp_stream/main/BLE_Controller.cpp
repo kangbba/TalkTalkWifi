@@ -12,13 +12,15 @@ BLECharacteristic *pRxCharacteristic;
 uint8_t txValue = 0;
 
 void MyServerCallbacks::onConnect(BLEServer* pServer) {
+    Serial.println("BLE SERVER CALLBACK : onConnect");
     deviceConnected = true;
-    setScreen(SCREEN_CONNECTED, 10);
 }
 
 void MyServerCallbacks::onDisconnect(BLEServer* pServer) {
+    Serial.println("BLE SERVER CALLBACK : onDisconnect");
     deviceConnected = false;
-    setScreen(SCREEN_MAIN, 10);
+    Serial.println("RESTART ADVERTISING");
+    setScreen(SCREEN_DISCONNECTED, 10);
 }
 
 void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
@@ -42,7 +44,10 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
             setScreen(SCREEN_MIC, 20);
           }
           else if(fullMsg == "/mainScreenOn"){
-            setScreen(SCREEN_MAIN, 20);
+          //  setScreen(SCREEN_MAIN, 20);
+          }
+          else if(fullMsg == "/connectedScreenOn"){
+            setScreen(SCREEN_CONNECTED, 20);
           }
           else if(fullMsg.indexOf(":") != -1 && fullMsg.indexOf(";") != -1)
           {

@@ -22,6 +22,7 @@ const int SCREEN_MAIN = 0;
 const int SCREEN_CONTENT = 1;
 const int SCREEN_MIC = 2;
 const int SCREEN_CONNECTED = 3;
+const int SCREEN_DISCONNECTED = 4;
 
 // "Recording ..." 문자열을 캐싱해두는 전역 변수
 const String recordingStr = "Recording ...";
@@ -113,7 +114,19 @@ void setScreen(int screen, int durationSec) {
             gfx->setTextColor(RGB565_BLACK); // Set text color
             gfx->setTextSize(1);
             gfx->setCursor(0, 230);
-            gfx->print("CONNECTED ✔");
+            gfx->print("CONNECTED");
+            break;
+        case SCREEN_DISCONNECTED:
+            showOpeningScreen();
+            changeUTF(-1);
+            gfx->setTextColor(RGB565_BLACK); // Set text color
+            gfx->setTextSize(1);
+            gfx->setCursor(286, 230);
+            gfx->print(FIRMWARE_ID);
+            gfx->setTextColor(RGB565_BLACK); // Set text color
+            gfx->setTextSize(1);
+            gfx->setCursor(0, 230);
+            gfx->print("DISCONNECTED");
             break;
         default:
             clearLCD(); // 기본 클리어 화면
