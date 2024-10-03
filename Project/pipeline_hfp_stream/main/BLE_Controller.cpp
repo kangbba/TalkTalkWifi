@@ -44,7 +44,7 @@ void MyCallbacks::onWrite(BLECharacteristic *pCharacteristic) {
             setScreen(SCREEN_MIC, 20);
           }
           else if(fullMsg == "/mainScreenOn"){
-          //  setScreen(SCREEN_MAIN, 20);
+            setScreen(SCREEN_MAIN, 20);
           }
           else if(fullMsg == "/connectedScreenOn"){
             setScreen(SCREEN_CONNECTED, 20);
