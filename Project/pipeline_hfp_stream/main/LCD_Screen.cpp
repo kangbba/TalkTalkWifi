@@ -121,7 +121,7 @@ void setScreen(int screen, int durationSec) {
             changeUTF(-1);
             gfx->setTextColor(RGB565_BLACK); // Set text color
             gfx->setTextSize(1);
-            gfx->setCursor(286, 230);
+            gfx->setCursor(288, 230);
             gfx->print(FIRMWARE_ID);
             gfx->setTextColor(RGB565_BLACK); // Set text color
             gfx->setTextSize(1);

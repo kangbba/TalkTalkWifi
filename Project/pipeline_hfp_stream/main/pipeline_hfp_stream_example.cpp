@@ -91,8 +91,7 @@ extern "C"
     void loopTask(void *pvParameters) {
         while (1) {
             loopBLE();  // BLE 관련 루프 실행
-            loopLCD();  // LCD 관련 루프 실행
-
+          //  loopLCD();  // LCD 관련 루프 실행
             vTaskDelay(pdMS_TO_TICKS(100));  // 1초 대기 (1000ms)
         }
     }
